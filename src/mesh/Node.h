@@ -121,10 +121,17 @@ private:
             EMERGENCY_DISCONNECT      = 6,
             SET_ENROLLED_NODES        = 7,
             GET_TIME                  = 8,
-            ADD_DYNAMIC_GROUP         = 9,
-            REMOVE_DYNAMIC_GROUP      = 10,
-            CLEAR_DYNAMIC_GROUPS      = 11,
-            GET_DYNAMIC_GROUPS        = 12,
+
+            //new
+            TRANSMIT_DATA_CollsndCount=9,
+            COLLECT_TRANSMIT_DATA=10,
+            FIND_DEGREE=11,
+            SET_CONSW=12,
+            INIT_STATE=13,
+            DISABLED_CONN=14,
+            SET_FLAG=15,
+            TRANSMIT_DATA_MultipleCount=16,
+            SET_UNIT=17,
         };
 
         enum class NodeModuleActionResponseMessages : u8
@@ -297,6 +304,10 @@ private:
         ClusterId currentAckId = 0;
         u16 connectionLossCounter = 0;
         u16 randomBootNumber = 0;
+        
+        //new
+        NodeId parent;
+        int deg[7]; //需設node數 當前 3+1
 
         AdvJob* meshAdvJobHandle = nullptr;
 

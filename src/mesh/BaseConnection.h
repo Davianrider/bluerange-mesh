@@ -136,6 +136,7 @@ enum class ConnectionState : u8{
     HANDSHAKE_DONE=4, 
     REESTABLISHING = 5, 
     REESTABLISHING_HANDSHAKE = 6,
+    DISABLED = 7,//new
 };
 //State of connection encryption
 enum class EncryptionState : u8{
@@ -184,7 +185,10 @@ class BaseConnection
         virtual ~BaseConnection();
 
         virtual void DisconnectAndRemove(AppDisconnectReason reason);
-
+        //new
+        virtual void Disabled();
+        //new
+        virtual void HANDSHAKE_DONE();
         //################### Sending ######################
         //Must be implemented in super class
         virtual bool SendData(u8 const * data, MessageLength dataLength, bool reliable, u32 * messageHandle) = 0;

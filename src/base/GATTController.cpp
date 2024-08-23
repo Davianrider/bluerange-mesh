@@ -98,7 +98,14 @@ ErrorType GATTController::BleWriteCharacteristic(u16 connectionHandle, u16 chara
     else
     {
         writeParameters.type = FruityHal::BleGattWriteType::WRITE_CMD;
-
+        //new
+        /*ConnPacketModule* outPacket = (ConnPacketModule*)data;
+        if (outPacket->actionType == 5) {
+            u32 packetSendTime = GS->delaytimer;
+            if (outPacket->sendtime == 0) {
+                outPacket->sendtime = packetSendTime;
+            }
+        } */
         return FruityHal::BleGattWrite(connectionHandle, writeParameters);
     }
 }

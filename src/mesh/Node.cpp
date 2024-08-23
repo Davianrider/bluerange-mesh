@@ -68,6 +68,31 @@ constexpr u8 connectAttemptsBeforeBlacklisting = 5;
 constexpr u8 MESH_SERVICE_BASE_UUID128[] = { 0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15, 0xDE, 0xEF, 0x12, 0x12, 0x00, 0x00, 0x00, 0x00 };
 constexpr u16 MESH_SERVICE_CHARACTERISTIC_UUID = 0x1524;
 
+//new
+NodeId root;
+int init =-1;  //初始化
+int numNodes = -1; //Node數
+int flag = -1; // 開關用
+int counta = 0; // 測試關閉啟用count數
+int testdis=0;
+//new: avg delay
+u8 TOTAL_NODE_NUM = -1;//nnber 注意 17
+
+u32 MultipleCount[16];
+u32 CollsndCount[16];
+u32 avgDelay[16];
+int rcvCount[16];
+
+int ssettime=-1; // ssettime 開關
+int adjust=-1; //調整誤差 開關
+int errorIndex=0; //誤差值
+
+bool delayReporter=0; //default reporter delay
+bool switchReporter=0; //default
+
+bool generate_load=0; //default generate load  
+
+
 Node::Node()
     : Module(ModuleId::NODE, "node")
 {
@@ -816,14 +841,19 @@ void Node::MeshMessageReceivedHandler(BaseConnection* connection, BaseConnection
                 GenerateLoadTriggerMessage const * message = (GenerateLoadTriggerMessage const *)packet->data;
                 generateLoadTarget = message->target;
                 generateLoadPayloadSize = message->size;
-                generateLoadMessagesLeft = message->amount;
+                //generateLoadMessagesLeft = message->amount;//packet->requestHandle new
+                generateLoadMessagesLeft = message->amount*packet->requestHandle;//packet->requestHandle new
                 generateLoadTimeBetweenMessagesDs = message->timeBetweenMessagesDs;
-                generateLoadRequestHandle = packet->requestHandle;
-
+                //generateLoadRequestHandle = packet->requestHandle;
+                generateLoadRequestHandle = 0; //new
+                //u32 packetReceivedTime = GS->timeManager.GetUtcTime();  // new nonimportant
+                GS->CollsndCount=0; //new init CollsndCount
+                GS->MultipleCount=0;
+                GS->MultipleUnit=packet->requestHandle; //new
                 logt("NODE", "Generating load. Target: %u size: %u amount: %u interval: %u requestHandle: %u",
                     message->target,
                     message->size,
-                    message->amount,
+                    message->amount*packet->requestHandle, //packet->requestHandle new
                     message->timeBetweenMessagesDs,
                     packet->requestHandle);
 
@@ -831,7 +861,7 @@ void Node::MeshMessageReceivedHandler(BaseConnection* connection, BaseConnection
                     MessageType::MODULE_ACTION_RESPONSE,
                     packetHeader->sender,
                     (u8)NodeModuleActionResponseMessages::START_GENERATE_LOAD_RESULT,
-                    packet->requestHandle,
+                    0, // update packet->requestHandle
                     nullptr,
                     0,
                     false
@@ -849,8 +879,202 @@ void Node::MeshMessageReceivedHandler(BaseConnection* connection, BaseConnection
                         payloadCorrect = false;
                     }
                 }
+                //new: calculate packet delay nonimportant
+                u32 packetReceivedTime = GS->delaytimer;
+                u32 packetDelay = 0;
+                if (packetReceivedTime >= packet->timestamp)
+                    packetDelay = packetReceivedTime - packet->timestamp;
+                else
+                    packetDelay = packet->timestamp - packetReceivedTime;
 
-                logjson("NODE", "{\"type\":\"generate_load_chunk\",\"nodeId\":%d,\"size\":%u,\"payloadCorrect\":%u,\"requestHandle\":%u}" SEP, packetHeader->sender, (u32)payloadLength, (u32)payloadCorrect, (u32)packet->requestHandle);
+                avgDelay[packetHeader->sender - 1] += packetDelay;
+                rcvCount[packetHeader->sender - 1] += 1;
+
+
+                for (u32 i = 0; i < payloadLength; i++)
+                {
+                    if (payload[i] != generateLoadMagicNumber)
+                    {
+                        payloadCorrect = false;
+                    }
+                }
+
+                if (payloadCorrect == true && configuration.nodeId == packetHeader->receiver && packetHeader->sender != 10)
+                    GS->rcvCount += 1;
+
+                if ((GS->rcvCount % 1000) == 0)
+                {
+                    logjson("NODE", "{\"type\":\"generate_load_chunk\",\"nodeId\":%d,\"size\":%u,\"payloadCorrect\":%u,\"receivedTime\":%u, \"stamp\":%u, \"delay\":%u}" SEP, packetHeader->sender, (u32)payloadLength, (u32)payloadCorrect, packetReceivedTime, packet->timestamp, packetDelay);
+                }
+                trace("node id : %d, generateTime : %u ms, sendTime : %u ms, receivedTime : %u ms, delay : %u ms," EOL, packetHeader->sender,packet->timestamp,packet->sendtime,packetReceivedTime,packetDelay);
+            }
+            //new collect data
+            else if(packet->actionType == (u8)NodeModuleTriggerActionMessages::COLLECT_TRANSMIT_DATA)
+            {
+                        SendModuleActionMessage(
+                            MessageType::MODULE_TRIGGER_ACTION,
+                            packetHeader->sender,
+                            (u8)NodeModuleTriggerActionMessages::TRANSMIT_DATA_CollsndCount,
+                            GS->CollsndCount,
+                            nullptr,
+                            0,
+                            false
+                        );
+                        SendModuleActionMessage(
+                            MessageType::MODULE_TRIGGER_ACTION,
+                            packetHeader->sender,
+                            (u8)NodeModuleTriggerActionMessages::TRANSMIT_DATA_MultipleCount,
+                            GS->MultipleCount,
+                            nullptr,
+                            0, 
+                            false
+                        );    
+                        GS->CollsndCount=0;
+                        GS->MultipleCount=0; 
+                    
+            }
+            //new collect data
+            else if(packet->actionType == (u8)NodeModuleTriggerActionMessages::TRANSMIT_DATA_CollsndCount)
+            {
+                GS->CollsndCount+=(u32)packet->requestHandle;
+                CollsndCount[packetHeader->sender-1]+=(u32)packet->requestHandle;
+            }
+            //new collect data
+            else if(packet->actionType == (u8)NodeModuleTriggerActionMessages::TRANSMIT_DATA_MultipleCount)
+            {
+                 GenerateLoadTriggerMessage const * message = (GenerateLoadTriggerMessage const *)packet->data; //new
+                GS->MultipleCount+=(u32)packet->requestHandle;
+                MultipleCount[packetHeader->sender-1]+=(u32)packet->requestHandle;
+                trace("GS->MultipleCount %u" EOL, GS->MultipleCount);
+               
+
+                
+            }
+
+            //new find_degree
+            else if (packet->actionType == (u8)NodeModuleTriggerActionMessages::FIND_DEGREE)
+            {
+                TOTAL_NODE_NUM = 6;
+
+                    /*初始化deg記憶體空間==-1*/
+                if (init == -1) {
+
+
+                    for (int i = 0; i <= TOTAL_NODE_NUM; i++) {
+                        deg[i] = -1;
+                    }
+
+                    init = 1;
+                 }
+
+                    /*設置deg*/
+                deg[packetHeader->sender]= ((u32)packet->requestHandle);
+                trace("Node: %d  deg: %d\n" EOL, packetHeader->sender, deg[packetHeader->sender]);//test
+                if (packetHeader->receiver != root) {
+                    deg[packetHeader->receiver] = ((u32)packet->requestHandle) + 1;
+                    GS->node.parent = packetHeader->sender;
+                }
+                else GS->node.parent = 255; // 如顯示255;
+
+                trace("Node: %d  deg: %d\n" EOL, packetHeader->receiver, deg[packetHeader->receiver]);
+                
+                 BaseConnections conn = GS->cm.GetBaseConnections(ConnectionDirection::INVALID);
+                 for (u8 i = 0; i < conn.count; i++)
+                  {
+                  if (conn.handles[i]) {
+                    if (GS->node.parent != conn.handles[i].GetPartnerId()) {
+                        deg[conn.handles[i].GetPartnerId()] = deg[packetHeader->receiver] + 1;
+                       SendModuleActionMessage(
+                       MessageType::MODULE_TRIGGER_ACTION, //MessageType messageType
+                       conn.handles[i].GetPartnerId(),     //NodeId toNode
+                       (u8)NodeModuleTriggerActionMessages::FIND_DEGREE,                                 //u8 actionType
+                       deg[packetHeader->receiver],                                  //u8 requestHandle 將目前deg的值傳給兒子
+                       nullptr,                            //const u8* additionalData
+                       0,                                  //u16 additionalDataSize
+                       false                              //bool reliable
+                           );
+                       }
+                     }
+                  }
+            }
+            //new init_state
+            else if (packet->actionType == (u8)NodeModuleTriggerActionMessages::INIT_STATE)
+            {
+                BaseConnections conn = GS->cm.GetBaseConnections(ConnectionDirection::INVALID);
+                for (u8 i = 0; i < conn.count; i++)
+                {
+                    if (conn.handles[i]) {
+                        if (GS->node.parent != conn.handles[i].GetPartnerId()) {
+                            SendModuleActionMessage(
+                                MessageType::MODULE_TRIGGER_ACTION, //MessageType messageType
+                                conn.handles[i].GetPartnerId(),     //NodeId toNode
+                                (u8)NodeModuleTriggerActionMessages::INIT_STATE,                                 //u8 actionType
+                                0,                                  //u8 requestHandle 
+                                nullptr,                            //const u8* additionalData
+                                0,                                  //u16 additionalDataSize
+                                false                              //bool reliable
+                            );
+                        }
+                        else if (deg[packetHeader->receiver] % 2 != 0) {
+                            trace("禁用\n");//test
+                            SendModuleActionMessage(
+                                MessageType::MODULE_TRIGGER_ACTION, //MessageType messageType
+                                conn.handles[i].GetPartnerId(),     //NodeId toNode
+                                (u8)NodeModuleTriggerActionMessages::DISABLED_CONN,                              //u8 actionType
+                                0,                                 //u8 requestHandle 
+                                nullptr,                            //const u8* additionalData
+                                0,                                  //u16 additionalDataSize
+                                false                              //bool reliable
+                            );
+                            conn.handles[i].Disabled();
+                            counta++; //測試有沒有正確執行用的
+                            trace("當前node為%d  目標node為 %d 的conn已設置%u\n\n", packetHeader->receiver, conn.handles[i].GetPartnerId(), (u8)conn.handles[i].GetConnectionState()); // test
+                        }
+                    }
+                }
+                }
+            
+            //new disable_conn
+            else if (packet->actionType == (u8)NodeModuleTriggerActionMessages::DISABLED_CONN)
+            {   
+                BaseConnections conn = GS->cm.GetBaseConnections(ConnectionDirection::INVALID);
+                for (u8 i = 0; i < conn.count; i++)
+                {
+                    if (conn.handles[i]) {
+                        if (packetHeader->sender == conn.handles[i].GetPartnerId()) {
+                            conn.handles[i].Disabled();
+                            counta++; //test
+                            trace("當前node為%d  目標node為 %d 的conn已設置%u\n\n", packetHeader->receiver, conn.handles[i].GetPartnerId(), (u8)conn.handles[i].GetConnectionState()); //test
+                        }
+
+                    }
+                }
+            }
+            //new set_flag 切換啟用禁用 (當網路完成初始化)
+            else if (packet->actionType == (u8)NodeModuleTriggerActionMessages::SET_FLAG)
+            {   flag=1;
+                BaseConnections conn = GS->cm.GetBaseConnections(ConnectionDirection::INVALID);
+                for (u8 i = 0; i < conn.count; i++)
+                {
+                    if (conn.handles[i]) {
+                        if (GS->node.parent != conn.handles[i].GetPartnerId()) {
+                           SendModuleActionMessage(
+                        MessageType::MODULE_TRIGGER_ACTION, //MessageType messageType
+                        conn.handles[i].GetPartnerId(),     //NodeId toNode
+                        (u8)NodeModuleTriggerActionMessages::SET_FLAG,                                 //u8 actionType
+                        deg[packetHeader->receiver],                                  //u8 requestHandle 將目前deg的值傳給兒子
+                        nullptr,                            //const u8* additionalData
+                        0,                                  //u16 additionalDataSize
+                        false                              //bool reliable
+                        );
+                    }
+                }
+                }
+            }
+
+            else if (packet->actionType == (u8)NodeModuleTriggerActionMessages::SET_UNIT)
+            {
+                 GS->MultipleUnit=packet->requestHandle;
             }
             
 
@@ -1971,6 +2195,11 @@ joinMeBufferPacket* Node::DetermineBestClusterAsMaster()
 //Connect to big clusters but big clusters must connect nodes that are not able 
 u32 Node::CalculateClusterScoreAsMaster(const joinMeBufferPacket& packet) const
 {
+    //if(1) return 0;
+    //new test if slave node id > now node id return 0; 
+    if (packet.payload.sender < configuration.nodeId) return 0;    
+    //if (packet.payload.sender != 3 && packet.payload.sender != 4) return 0;  
+    //if (packet.payload.sender != 2) return 0; 
     //If the packet is too old, filter it out
     if (GS->appTimerDs - packet.receivedTimeDs > MAX_JOIN_ME_PACKET_AGE_DS) return 0;
 
@@ -2314,6 +2543,72 @@ void Node::DisableStateMachine(bool disable)
 
 void Node::TimerEventHandler(u16 passedTimeDs)
 {
+
+    //synctime    
+    if(ssettime>0)
+    {
+        ssettime --;
+    }
+    else if (ssettime==0)
+    {
+        //Set the time for our node
+        GS->timeManager.SetMasterTime(strtoul("1", nullptr, 10), 0, (i16)strtol("1", nullptr, 10));
+        ssettime = -1;
+    }
+
+    //adjust time
+    if(adjust>0)
+    {
+        adjust--;
+    }
+    else if (adjust==0)
+    {
+        GS->caltime+=errorIndex;
+        adjust = -1;
+    }
+
+    //reporter delay
+    if(delayReporter==1){
+        //trace("appTimerDs : %u passedTimeDs : %u " EOL, GS->appTimerDs, passedTimeDs);
+        //trace("Rtc : %u UtcMs : %u " EOL, FruityHal::GetRtcMs(), GS->timeManager.GetUtcTime());
+        trace("Delaytimer : %u Utc : %u " EOL, GS->delaytimer, GS->timeManager.GetUtcTime());
+        //trace("GS->caltick : %d",GS->caltick);
+        trace("caltick : %u" EOL, GS->caltick);
+        trace("timesynce : %u" EOL, GS->inittimeSinceSyncTime);
+    }
+    
+
+    //reporter dis/enb
+    if (flag == 1) {
+        testdis++;
+        //if(testdis==100){      
+            if(switchReporter==1){
+             trace("dis/enb switch" EOL);
+            }   
+        GS->cm.UpdateState();
+        GS->cm.FillTransmitBuffers();//sure?
+        testdis=0;
+        //}
+    }
+
+    //multi_generate_load
+    if (generate_load == 1){
+        for (int i=0; i<10; i++){
+            DYNAMIC_ARRAY(payloadBuffer, generateLoadPayloadSize);
+            CheckedMemset(payloadBuffer, generateLoadMagicNumber, generateLoadPayloadSize);
+
+            SendModuleActionMessage(
+                MessageType::MODULE_TRIGGER_ACTION,
+                generateLoadTarget,
+                (u8)NodeModuleTriggerActionMessages::GENERATE_LOAD_CHUNK,
+                generateLoadRequestHandle,
+                payloadBuffer,
+                generateLoadPayloadSize,
+                false
+            );
+        }
+    }
+
     currentStateTimeoutDs -= passedTimeDs;
     clusterSizeTransitionTimeoutDs -= passedTimeDs;
 
@@ -2529,6 +2824,11 @@ void Node::TimerEventHandler(u16 passedTimeDs)
             DYNAMIC_ARRAY(payloadBuffer, generateLoadPayloadSize);
             CheckedMemset(payloadBuffer, generateLoadMagicNumber, generateLoadPayloadSize);
 
+
+            //new
+            // if(GS->MultipleUnit!=0){
+            if(GS->MultipleUnit==0){
+            for(int i=0;i<int(GS->MultipleUnit);i++){
             SendModuleActionMessage(
                 MessageType::MODULE_TRIGGER_ACTION,
                 generateLoadTarget,
@@ -2538,6 +2838,19 @@ void Node::TimerEventHandler(u16 passedTimeDs)
                 generateLoadPayloadSize,
                 false
             );
+            }                
+            }
+            else{
+            SendModuleActionMessage(
+                MessageType::MODULE_TRIGGER_ACTION,
+                generateLoadTarget,
+                (u8)NodeModuleTriggerActionMessages::GENERATE_LOAD_CHUNK,
+                generateLoadRequestHandle,
+                payloadBuffer,
+                generateLoadPayloadSize,
+                false
+            );
+            }
         }
     }
 
@@ -2848,6 +3161,79 @@ void Node::RecordStorageEventHandler(u16 recordId, RecordStorageResultCode resul
 #ifdef TERMINAL_ENABLED
 TerminalCommandHandlerReturnType Node::TerminalCommandHandler(const char* commandArgs[], u8 commandArgsSize)
 {
+    //Reporter
+    if (commandArgsSize >= 1 && TERMARGS(0, "reporter")) {
+        if(TERMARGS(1, "delay")){
+            delayReporter = (delayReporter == 1) ? 0 : 1;
+        }
+        if(TERMARGS(1, "switch")){
+            switchReporter = (switchReporter == 1) ? 0 : 1;
+        }        
+    } 
+    if (TERMARGS(0, "repeat_load")) {
+        generate_load = 0;
+    }       
+    if (commandArgsSize >= 3 && TERMARGS(0, "repeat_load")) {
+        generateLoadTarget = Utility::TerminalArgumentToNodeId(commandArgs[1]); //目標
+        generateLoadPayloadSize = Utility::TerminalArgumentToNodeId(commandArgs[2]); //size
+        generateLoadRequestHandle = 0; //new
+        GS->MultipleUnit=Utility::TerminalArgumentToNodeId(commandArgs[3]); //單位
+        for (int j = 1; j <= TOTAL_NODE_NUM; j++) // for (int j = 1; j < TOTAL_NODE_NUM; j++)
+            {
+                if (j != configuration.nodeId) { //new
+                    SendModuleActionMessage(
+                        MessageType::MODULE_TRIGGER_ACTION,
+                        j,
+                        (u8)NodeModuleTriggerActionMessages::SET_UNIT,
+                        GS->MultipleUnit,
+                        nullptr,
+                        0,
+                        false
+                    );
+                }
+            }
+        generate_load = 1;   
+        return TerminalCommandHandlerReturnType::SUCCESS;        
+    }        
+    //new test 四個目前沒用到
+    if (TERMARGS(0, "flag")) {
+        flag = 1;
+        //printf("已設置flag=1\n\n");
+        trace("已設置flag=1\n\n");
+        
+    }
+    if (commandArgsSize >= 1 && TERMARGS(0, "set")) {
+        ssettime=Utility::TerminalArgumentToNodeId(commandArgs[1]); //時間
+        
+    }
+    if (commandArgsSize >= 2 && TERMARGS(0, "adjust")) {
+        adjust=Utility::TerminalArgumentToNodeId(commandArgs[1]); // 時間
+        errorIndex=Utility::TerminalArgumentToNodeId(commandArgs[2]); // 誤差值
+    }
+    if (TERMARGS(0, "flag0")) {
+        flag = 0;
+        //printf("已設置flag=0\n\n");
+        trace("已設置flag=0\n\n");
+    }
+
+
+    if (TERMARGS(0, "time")) {
+        trace("UTC TIME = %u" EOL, GS->timeManager.GetUtcTime());
+    }
+
+    if (TERMARGS(0, "tern")) {
+        BaseConnections conn = GS->cm.GetBaseConnections(ConnectionDirection::INVALID);
+        for (u8 i = 0; i < conn.count; i++)
+        {
+            if (conn.handles[i]) {
+                if (conn.handles[i].GetConnectionState() == ConnectionState::DISABLED) {
+                    conn.handles[i].HANDSHAKE_DONE();
+                    //printf("\nhandle%u state%u count%d\n", (u8)conn.handles[i].GetConnectionHandle(), (u8)conn.handles[i].GetConnectionState(), counta);
+                }
+
+            }
+        }
+    }
     //React on commands, return true if handled, false otherwise
     if(commandArgsSize >= 3 && TERMARGS(2 , "node"))
     {
@@ -2856,6 +3242,70 @@ TerminalCommandHandlerReturnType Node::TerminalCommandHandler(const char* comman
             //Rewrite "this" to our own node id, this will actually build the packet
             //But reroute it to our own node
             const NodeId destinationNode = Utility::TerminalArgumentToNodeId(commandArgs[1]);
+
+            //new test
+            if (TERMARGS(3, "flag")) 
+            {
+                flag=1;
+                root = destinationNode; //將root設為目標node
+                SendModuleActionMessage(
+                    MessageType::MODULE_TRIGGER_ACTION,
+                    destinationNode,
+                    (u8)NodeModuleTriggerActionMessages::SET_FLAG,
+                    0,
+                    nullptr,
+                    0,
+                    false
+                ); //發送一個SET_FLAG行動的封包給目標node
+                   
+                return TerminalCommandHandlerReturnType::SUCCESS;
+            }            
+            if (TERMARGS(3, "finddeg")) 
+            {
+                root = destinationNode; //將root設為目標node
+                SendModuleActionMessage(
+                    MessageType::MODULE_TRIGGER_ACTION,
+                    destinationNode,
+                    (u8)NodeModuleTriggerActionMessages::FIND_DEGREE,
+                    0,
+                    nullptr,
+                    0,
+                    false
+                ); //發送一個FIND_DEGREE行動的封包給目標node
+                   
+                return TerminalCommandHandlerReturnType::SUCCESS;
+            }
+            if (TERMARGS(3, "setconsw")) //目前沒用
+            {
+                root = destinationNode; //將root設為目標node
+                SendModuleActionMessage(
+                    MessageType::MODULE_TRIGGER_ACTION,
+                    destinationNode,
+                    (u8)NodeModuleTriggerActionMessages::SET_CONSW,
+                    0,
+                    nullptr,
+                    0,
+                    false
+                ); //發送一個setconsw行動的封包給目標node
+
+                return TerminalCommandHandlerReturnType::SUCCESS;
+            }
+            if (TERMARGS(3, "init"))
+            {
+                root = destinationNode; //將root設為目標node
+                //printf("now root=%u\n\n", root);
+                SendModuleActionMessage(
+                    MessageType::MODULE_TRIGGER_ACTION,
+                    destinationNode,
+                    (u8)NodeModuleTriggerActionMessages::INIT_STATE,
+                    0,
+                    nullptr,
+                    0,
+                    false
+                ); 
+                return TerminalCommandHandlerReturnType::SUCCESS;
+            }
+
 
             if (TERMARGS(3, "gettime") && commandArgsSize >= 4)
             {
@@ -2947,6 +3397,110 @@ TerminalCommandHandlerReturnType Node::TerminalCommandHandler(const char* comman
 
                 return TerminalCommandHandlerReturnType::SUCCESS;
             }
+
+
+            //new command: let many nodes generate load
+            if (commandArgsSize > 4 && TERMARGS(3, "multi_generate_load"))
+            {
+                //  0      1    2            3          4      5            6                  7
+                //action this node multi_generate_load size repeats timeBetweenMessages {requestHandle}
+                GenerateLoadTriggerMessage gltm;
+                CheckedMemset(&gltm, 0, sizeof(GenerateLoadTriggerMessage));
+                gltm.target = destinationNode;//TOTAL_NODE_NUM;//nnber
+                gltm.size = Utility::StringToU8(commandArgs[4]);
+                gltm.amount = Utility::StringToU16(commandArgs[5]);
+                gltm.timeBetweenMessagesDs = Utility::StringToU8(commandArgs[6]);
+
+                const u8 requestHandle = commandArgsSize > 8 ? Utility::StringToU8(commandArgs[7]) : 1; // new :0 update :1
+                GS->MultipleUnit=requestHandle; //new
+                GS->sndCount = gltm.amount * (TOTAL_NODE_NUM - 1)*requestHandle;
+                //reset avg delay, PDR count
+                GS->rcvCount = 0;
+                for (int i = 0; i < TOTAL_NODE_NUM ; i++) //  for (int i = 0; i < TOTAL_NODE_NUM - 1; i++)
+                {
+                        MultipleCount[i]=0;
+                        CollsndCount[i]=0;
+                        avgDelay[i] = 0;
+                        rcvCount[i] = 0;
+                }
+
+                // start generating for 1 sink only
+                for (int j = 1; j <= TOTAL_NODE_NUM; j++) // for (int j = 1; j < TOTAL_NODE_NUM; j++)
+                {
+                    if (j != destinationNode) { //new
+                        SendModuleActionMessage(
+                            MessageType::MODULE_TRIGGER_ACTION,
+                            j,
+                            (u8)NodeModuleTriggerActionMessages::START_GENERATE_LOAD,
+                            requestHandle,
+                            (u8*)&gltm,
+                            sizeof(gltm),
+                            false
+                        );
+                    }
+                }
+                return TerminalCommandHandlerReturnType::SUCCESS;
+            }
+
+            //new command: coll sndCount
+            if (commandArgsSize >3 && TERMARGS(3, "snd"))
+            {   GS->CollsndCount=0;
+                GS->MultipleCount=0;
+                // COLLECT_TRANSMIT_DATA
+                for (int j = 1; j <= TOTAL_NODE_NUM; j++) 
+                {
+                    if (j != destinationNode) { //new
+                        SendModuleActionMessage(
+                            MessageType::MODULE_TRIGGER_ACTION,
+                            j,
+                            (u8)NodeModuleTriggerActionMessages::COLLECT_TRANSMIT_DATA,
+                            0,
+                            nullptr,
+                            0,
+                            false
+                        );
+                    }
+                }
+                return TerminalCommandHandlerReturnType::SUCCESS;                
+            }
+            //new command: avg delay result
+            if (commandArgsSize > 3 && TERMARGS(3, "result"))
+            {                
+                //  0     1    2      3
+                //action this node result
+                u32 avg = 0;
+                for (int i = 0; i < TOTAL_NODE_NUM; i++)
+                {
+                    if ((i+1) != destinationNode) { //new
+                        u32 temp;
+                        u32 sendcount=0;
+                        sendcount = (CollsndCount[i]+(GS->MultipleUnit*MultipleCount[i]));
+                        if (rcvCount[i] == 0)
+                            temp = 0;
+                        else
+                            temp = avgDelay[i] / rcvCount[i];
+                        trace("Avg delay of node %d = %u ms , send count = %u , rcv count = %d " EOL, i + 1, temp, sendcount, rcvCount[i]);
+                        avg += temp;
+                    }
+                }
+
+                //printf("Avg delay of all nodes = %u ms\n", avg / (TOTAL_NODE_NUM - 1));
+                //printf("send count = %u, rcv count = %u\n", GS->sndCount, GS->rcvCount);
+               // trace("Avg delay of all nodes = %u ms" EOL,  avg / (TOTAL_NODE_NUM - 1));
+                trace("MultipleCount : %u , MultipleUnit : %u , CollsndCount : %u ," EOL, GS->MultipleCount, GS->MultipleUnit, GS->CollsndCount);
+                trace("Avg delay of all nodes = %u ms" EOL,  avg / (TOTAL_NODE_NUM - 1));
+                trace("COL send count = %u, send count = %u, rcv count = %u" EOL, GS->CollsndCount+(GS->MultipleUnit*GS->MultipleCount), GS->sndCount, GS->rcvCount);
+                GS->rcvCount=0;
+                for (int i = 0; i < TOTAL_NODE_NUM ; i++) //  for (int i = 0; i < TOTAL_NODE_NUM - 1; i++)
+                {
+                        MultipleCount[i]=0;
+                        CollsndCount[i]=0;
+                        avgDelay[i] = 0;
+                        rcvCount[i] = 0;
+                }
+                return TerminalCommandHandlerReturnType::SUCCESS;
+            }
+
 
             if (
                    commandArgsSize >= 5 

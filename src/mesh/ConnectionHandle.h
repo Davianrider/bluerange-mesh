@@ -71,6 +71,12 @@ public:
     bool Exists() const;
 
     bool DisconnectAndRemove(AppDisconnectReason reason);
+    
+    //new
+    bool Disabled();
+    //new
+    bool HANDSHAKE_DONE();
+
     bool IsHandshakeDone();
     u16 GetConnectionHandle();
     NodeId GetPartnerId();

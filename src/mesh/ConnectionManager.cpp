@@ -217,6 +217,20 @@ void ConnectionManager::SetMeshConnectionInterval(u16 connectionInterval) const
     }
 }
 
+//new ******* 參考node    GS->cm.SetMeshConnectionInterval(packet->newInterval);
+
+void ConnectionManager::UpdateState() {
+    BaseConnections conn = GS->cm.GetBaseConnections(ConnectionDirection::INVALID);
+    for (u32 i = 0; i < conn.count; i++)
+    {
+        if (conn.handles[i]) {
+            if ((conn.handles[i].GetConnectionState()) == ConnectionState::DISABLED) conn.handles[i].HANDSHAKE_DONE();
+            else if ((conn.handles[i].GetConnectionState()) == ConnectionState::HANDSHAKE_DONE) conn.handles[i].Disabled();
+        }
+    }
+}
+
+
 #if IS_ACTIVE(CONN_PARAM_UPDATE)
 void ConnectionManager::UpdateConnectionIntervalForLongTermMeshConnections() const
 {
@@ -497,12 +511,29 @@ ErrorType ConnectionManager::SendMeshMessageInternal(u8* data, u16 dataLength, b
 
         //Send to receiver or broadcast if not directly connected to us
         if(receiverConn){
+           // (new)***trace("partnerid: %d  parent: %d\n" EOL, receiverConn.GetPartnerId(), GS->node.parent);//test
             bool result = receiverConn.SendData(data, dataLength, reliable);
             if (result == false)
             {
                 err = ErrorType::INTERNAL;
             }
-        } else {
+        }
+        else {
+            /*  //new
+            if(outPacket->actionType==5 && receiverConn.GetPartnerId() != GS->node.parent)
+            {
+                trace("parent: %d partnerid: %d\n" EOL, GS->node.parent, receiverConn.GetPartnerId());//test
+                //err = ErrorType::INTERNAL;
+            }
+            else
+            {
+                bool result = BroadcastMeshPacket(data, dataLength, reliable);
+                if (result == false)
+                {
+                    err = ErrorType::INTERNAL;
+                }
+            }
+            //err = ErrorType::INTERNAL;*/
             bool result = BroadcastMeshPacket(data, dataLength, reliable);
             if (result == false)
             {
@@ -578,6 +609,20 @@ ErrorTypeUnchecked ConnectionManager::SendModuleActionMessage(MessageType messag
         CheckedMemcpy(&outPacket->data, additionalData, additionalDataSize);
     }
 
+    //new cal time
+    u32 packetgenerateTime = GS->delaytimer;
+
+    //new
+    if (actionType == 5) //GENERATE_LOAD_CHUNK
+    {
+        outPacket->DirectionSet = false;
+        outPacket->Currdirection = 0;
+        outPacket->Predirection = 0;
+        outPacket->timestamp = packetgenerateTime;
+        outPacket->sendtime = 0;
+        outPacket->packetSendTime =0;
+    }
+
     //TODO: reliable is currently not supported and by default false. The input is ignored
     return (ErrorTypeUnchecked)GS->cm.SendMeshMessageInternal(buffer, SIZEOF_CONN_PACKET_MODULE + additionalDataSize, false, loopback, true);
 }
@@ -616,10 +661,17 @@ bool ConnectionManager::BroadcastMeshPacket(u8* data, u16 dataLength, bool relia
     bool ret = true;
     MeshConnections conn = GetMeshConnections(ConnectionDirection::INVALID);
     ConnPacketHeader* packetHeader = (ConnPacketHeader*)data;
+    
+    //new
+    ConnPacketModule* outPacket = (ConnPacketModule*)data;    
+    
     for(u32 i=0; i< conn.count; i++){
         // We might have connections that will be dropped, because eg. nodes are in the same cluster. This is very rare,
         // but can happen right after or during clustering. We don't want to send data over those connections.
         if (conn.handles[i].IsHandshakeDone() == false) continue;
+
+        //new
+        if(outPacket->actionType==5 && conn.handles[i].GetPartnerId() != GS->node.parent) continue;
 
         if (packetHeader->receiver == NODE_ID_ANYCAST_THEN_BROADCAST) {
             packetHeader->receiver = NODE_ID_BROADCAST;
@@ -825,11 +877,17 @@ void ConnectionManager::RouteMeshData(BaseConnection* connection, BaseConnection
 
 void ConnectionManager::BroadcastMeshData(const BaseConnection* ignoreConnection, BaseConnectionSendData* sendData, u8 const * data, RoutingDecision routingDecision) const
 {
+    const ConnPacketModule* outPacket = (ConnPacketModule const*)data; //new
+    
     //Iterate through all mesh connections except the ignored one and send the packet
     if (!(routingDecision & ROUTING_DECISION_BLOCK_TO_MESH)) {
         MeshConnections conn = GetMeshConnections(ConnectionDirection::INVALID);
         for (u32 i = 0; i < conn.count; i++) {
             if (conn.handles[i] && conn.handles[i].GetConnection() != ignoreConnection) {
+
+                //new There's no need to broadcast; just send the packet to the root.
+                if (outPacket->actionType == 5 && conn.handles[i].GetPartnerId() != GS->node.parent) continue; 
+
                 sendData->characteristicHandle = ((MeshConnection*)conn.handles[i].GetConnection())->partnerWriteCharacteristicHandle;
                 ((MeshConnection*)conn.handles[i].GetConnection())->SendData(sendData, data);
             }

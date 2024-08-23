@@ -36,6 +36,12 @@
 #include <GlobalState.h>
 #include <MeshConnection.h>
 
+//new
+extern int flag;
+//extern int* deg;
+extern int deg[10];
+int maxdeg = -1;
+
 constexpr int BASE_CONNECTION_MAX_SEND_FAIL  = 10;
 
 /*
@@ -95,7 +101,16 @@ void BaseConnection::DisconnectAndRemove(AppDisconnectReason reason)
     //### STEP 3: Inform ConnectionManager to do the final cleanup
     GS->cm.DeleteConnection(this, reason);
 }
-
+//new
+void BaseConnection::Disabled()
+{
+    connectionState = ConnectionState::DISABLED;
+}
+//new
+void BaseConnection::HANDSHAKE_DONE()
+{
+    connectionState = ConnectionState::HANDSHAKE_DONE;
+}
 
 /*######## PRIVATE FUNCTIONS ###################################*/
 
@@ -123,7 +138,8 @@ bool BaseConnection::QueueData(const BaseConnectionSendData &sendData, u8 const 
     const bool successfullyQueued = queue.SplitAndAddMessage(overwritePriority == DeliveryPriority::INVALID ? GetPriorityOfMessage(data, sendData.dataLength) : overwritePriority, buffer, bufferSize, connectionPayloadSize, messageHandle);
 
     if(successfullyQueued){
-        if (fillTxBuffers) FillTransmitBuffers();
+        if (fillTxBuffers && connectionState != ConnectionState::DISABLED) FillTransmitBuffers(); //maybe sure?
+       //update new if (fillTxBuffers) FillTransmitBuffers();
         return true;
     } else {
         GS->cm.droppedMeshPackets++;
@@ -145,8 +161,8 @@ bool BaseConnection::QueueData(const BaseConnectionSendData &sendData, u8 const 
 void BaseConnection::FillTransmitBuffers()
 {
     ErrorType err = ErrorType::SUCCESS;
-
     if (bufferFull) return;
+    if (connectionState == ConnectionState::DISABLED) return; //new
 
     while(IsConnected() && connectionState != ConnectionState::REESTABLISHING && connectionState != ConnectionState::REESTABLISHING_HANDSHAKE)
     {
@@ -177,6 +193,18 @@ void BaseConnection::FillTransmitBuffers()
         //Unpack data from sendQueue
         BaseConnectionSendDataPacked* sendDataPacked = (BaseConnectionSendDataPacked*)queueBuffer;
         u8* data = (queueBuffer + SIZEOF_BASE_CONNECTION_SEND_DATA_PACKED);
+
+        //nwe Print packet as hex
+        ConnPacketHeader const* packetHeader = (ConnPacketHeader const*)data;
+        //new
+        ConnPacketModule* outPacket = (ConnPacketModule*)data;
+        if (packetHeader->messageType == MessageType::MODULE_TRIGGER_ACTION) {
+            ConnPacketModule const* packet = (ConnPacketModule const*)packetHeader;
+            if (packet->actionType == 5) {
+                outPacket->Currdirection= (direction == ConnectionDirection::DIRECTION_IN) ? 1 : 0;
+            }
+        }
+
 
         //The subclass is allowed to modify the packet before it is sent, it will place the modified packet into the data buffer.
         //This could be encryption of the data.

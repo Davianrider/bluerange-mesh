@@ -1,0 +1,12 @@
+2024/8/23
+src/base/GATTController.cpp 與77code同步 搜尋new
+src/base/GlobalState.h 與77code同步同步 搜尋new
+src/mesh/node.cpp 與77code同步同步 搜尋new
+src/mesh/node.h 與77code同步同步 搜尋new
+src/mesh/BaseConnection.cpp 與77code同步同步 搜尋new
+src/mesh/BaseConnection.h 與77code同步同步 搜尋new
+src/mesh/ConnectionHandle.cpp 與77code同步同步 搜尋new
+src/mesh/ConnectionHandle.h 與77code同步同步 搜尋new
+src/mesh/ConnectionManager.cpp 與77code同步同步 搜尋new
+src/mesh/ConnectionManager.h 與77code同步同步 搜尋new
+src/mesh/MeshConnection.cpp 與77code同步同步 搜尋new

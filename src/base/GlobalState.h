@@ -94,7 +94,12 @@ class GlobalState
         u32 currentEventBuffer[15 + NRF_SDH_BLE_GATT_MAX_MTU_SIZE / 4]; //This value was picked arbitrarily so that the buffer will be big enough to fit all kinds of events. This is more than enough for all event types and is simpler than using the complex macros from the SDK to pick the correct size.
         static constexpr u16 SIZE_OF_EVENT_BUFFER = sizeof(currentEventBuffer);
 #endif
-
+        //PDR new
+        u32 rcvCount = 0;
+        u32 sndCount = 0;
+        u32 CollsndCount =0; //(包含碰撞)
+        u32 MultipleUnit =0;
+        u32 MultipleCount=0;
         //#################### App timer ###########################
         //To keep track of timer ticks
         u32 previousRtcTicks = 0;
@@ -104,7 +109,10 @@ class GlobalState
         u16 passsedTimeSinceLastTimerHandlerDs = 0;
         u16 appTimerRandomOffsetDs = 0;
         u32 appTimerDs = 0; //The app timer is used for all mesh and module timings and keeps track of the time in ds since bootup
-
+        u32 delaytimer = 0; // new delaytimer
+        u32 inittimeSinceSyncTime =0; // new test use to add tick(ms) ; 
+        u32 caltime=0; // new Rtc
+        u32 caltick=0; // new rtc 調整用
         TimeManager timeManager;
 
         u32 amountOfRemovedConnections = 0;
@@ -198,6 +206,7 @@ class GlobalState
         // Watchdog debug flags and timestamps
         u32* watchdogExtraInfoFlagsPtr;
         u32 lastSendTimestamp;
+        u32 sendtime1; //new
         u32 lastReceivedTimestamp;
         bool fruityMeshBooted = false;
         bool modulesBooted = false;

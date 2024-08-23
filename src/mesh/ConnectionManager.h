@@ -193,6 +193,9 @@ public:
 
     void SetMeshConnectionInterval(u16 connectionInterval) const;
 
+    //new *********************** 參考Setmeshconnectioninterval
+    void UpdateState();
+
 #if IS_ACTIVE(CONN_PARAM_UPDATE)
     /// Iterate through the mesh connections and update the connection
     /// intervals for long term connections as defined by values in the

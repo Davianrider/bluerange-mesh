@@ -291,8 +291,8 @@ uint32_t UintPow(uint32_t base, uint32_t exponent){
 void Conf::GenerateRandomSerialAndNodeId(){
     //Generate a random serial number for testing from the open source testing range (FMBBB - FM999)
     serialNumberIndex = (FruityHal::GetDeviceId() % (SERIAL_NUMBER_FM_TESTING_RANGE_END - SERIAL_NUMBER_FM_TESTING_RANGE_START)) + SERIAL_NUMBER_FM_TESTING_RANGE_START;
-
-    defaultNodeId = serialNumberIndex % NODE_ID_DEVICE_BASE_SIZE; //nodeId must stay within valid range
+    //defaultNodeId = serialNumberIndex % NODE_ID_DEVICE_BASE_SIZE; //nodeId must stay within valid range
+    defaultNodeId=6;//new
 }
 
 //Tests if a memory region in flash storage is empty (0xFF)

@@ -107,6 +107,37 @@ bool BaseConnectionHandle::DisconnectAndRemove(AppDisconnectReason reason)
     }
 }
 
+//new
+bool BaseConnectionHandle::Disabled()
+{
+    BaseConnection* con = GetConnection();
+    if (con)
+    {
+        con->Disabled();
+        return true;
+    }
+    else
+    {
+        DEFAULT_CONNECTION_HANDLE_ERROR_HANDLING();
+        return false;
+    }
+}
+//new
+bool BaseConnectionHandle::HANDSHAKE_DONE()
+{
+    BaseConnection* con = GetConnection();
+    if (con)
+    {
+        con->HANDSHAKE_DONE();
+        return true;
+    }
+    else
+    {
+        DEFAULT_CONNECTION_HANDLE_ERROR_HANDLING();
+        return false;
+    }
+}
+
 bool BaseConnectionHandle::IsHandshakeDone()
 {
     BaseConnection* con = GetConnection();

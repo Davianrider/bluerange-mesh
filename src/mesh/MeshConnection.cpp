@@ -377,7 +377,16 @@ bool MeshConnection::SendData(BaseConnectionSendData* sendData, u8 const * data,
     if(!HandshakeDone()) return false; //Do not allow data being sent when Handshake has not finished yet
 
     //Print packet as hex
-    ConnPacketHeader const * packetHeader = (ConnPacketHeader const *)data;
+    ConnPacketHeader const* packetHeader = (ConnPacketHeader const*)data;
+    //new
+    /*ConnPacketModule* outPacket = (ConnPacketModule*)data;
+    if (packetHeader->messageType == MessageType::MODULE_TRIGGER_ACTION) {
+        ConnPacketModule const* packet = (ConnPacketModule const*)packetHeader;
+        if (packet->actionType == 5) {
+            outPacket->Currdirection= (direction == ConnectionDirection::DIRECTION_IN) ? 1 : 0;
+        }
+    }*/
+
     char stringBuffer[100];
     Logger::ConvertBufferToHexString(data, sendData->dataLength, stringBuffer, sizeof(stringBuffer));
 
