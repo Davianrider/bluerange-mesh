@@ -321,12 +321,17 @@ STATIC_ASSERT_SIZE(ConnPacketEncryptCustomDone, SIZEOF_CONN_PACKET_ENCRYPT_CUSTO
     u8 actionType
 
 //CONN_PACKET_MODULE is the basic header used by all module messages
-constexpr size_t SIZEOF_CONN_PACKET_MODULE = (SIZEOF_CONN_PACKET_HEADER + 3); //This size does not include the data region which is variable, add the used data region size to this size
+constexpr size_t SIZEOF_CONN_PACKET_MODULE = (SIZEOF_CONN_PACKET_HEADER + 18);//11new +4 update //This size does not include the data region which is variable, add the used data region size to this size
 typedef struct
 {
     CONN_PACKET_MODULE_ENTRIES;
+    u32 timestamp;//new
+    u32 sendtime;//new
+    u32 packetSendTime; //new
+    bool Predirection; //new +1
+    bool Currdirection; //new +1
+    bool DirectionSet; //new +1
     u8 data[MAX_DATA_SIZE_PER_WRITE - SIZEOF_CONN_PACKET_HEADER - 4]; //Data can be larger and will be transmitted in subsequent packets
-
 }ConnPacketModule;
 STATIC_ASSERT_SIZE(ConnPacketModule, SIZEOF_CONN_PACKET_MODULE + sizeof(ConnPacketModule::data));
 
@@ -334,6 +339,12 @@ STATIC_ASSERT_SIZE(ConnPacketModule, SIZEOF_CONN_PACKET_MODULE + sizeof(ConnPack
 typedef struct
 {
     CONN_PACKET_MODULE_ENTRIES;
+    u32 timestamp;//new
+    u32 sendtime;//new
+    u32 packetSendTime; //new
+    bool Predirection; //new +1
+    bool Currdirection; //new +1
+    bool DirectionSet; //new +1
 }ConnPacketModuleStart;
 STATIC_ASSERT_SIZE(ConnPacketModuleStart, SIZEOF_CONN_PACKET_MODULE);
 
@@ -446,6 +457,12 @@ struct RawDataHeader
     ModuleId moduleId;
     u8 requestHandle;
     RawDataActionType actionType;
+    u32 timestamp;//new
+    u32 sendtime;//new
+    u32 packetSendTime; //new
+    bool Predirection; //new +1
+    bool Currdirection; //new +1
+    bool DirectionSet; //new +1
 };
 static_assert(sizeof(RawDataHeader) == SIZEOF_CONN_PACKET_MODULE, "The RawDataHeader must have the exact same structure as ConnPacketModule");
 
@@ -646,8 +663,9 @@ struct TimeSyncInitial
     u32 additionalTicks;
     i16 offset;
     u32 counter;
+    u32 appTimerDs; //new
 };
-STATIC_ASSERT_SIZE(TimeSyncInitial, 24);
+STATIC_ASSERT_SIZE(TimeSyncInitial, 28); //new update 24;
 
 struct TimeSyncInterNetwork
 {

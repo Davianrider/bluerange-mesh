@@ -458,6 +458,7 @@ namespace FruityHal
     ErrorType InitTimers();
     ErrorType StartTimers();
     u32 GetRtcMs();
+    u32 UpdateDelayTimer(); // new calculation delay
     u32 GetRtcDifferenceMs(u32 nowTimeMs, u32 previousTimeMs);
     ErrorType CreateTimer(swTimer &timer, bool repeated, TimerHandler handler);
     ErrorType StartTimer(swTimer timer, u32 timeoutMs);

@@ -144,6 +144,14 @@ extern "C" {
 static_assert(SD_EVT_IRQ_PRIORITY == APP_TIMER_CONFIG_IRQ_PRIORITY, "Check irq priorities");
 #endif
 
+//new
+bool CalDelay=1; // CalDelay
+u32 errTime=0; // sendtime - forwardingtime  
+u32 delay=0; // delay
+u32 Ctime=0; // Cur CI time
+bool Currdirection=0; // configuration Cur conn
+u32 CI=100; // CI
+
 constexpr u8 MAX_GPIOTE_HANDLERS = 4;
 struct GpioteHandlerValues
 {
@@ -1866,6 +1874,81 @@ ErrorType FruityHal::BleGattWrite(u16 connHandle, BleGattWriteParams const & par
     else if (params.type == BleGattWriteType::WRITE_CMD) writeParameters.write_op = BLE_GATT_OP_WRITE_CMD;
     else return ErrorType::INVALID_PARAM;
 
+//new 
+    ConnPacketModule* outPacket = (ConnPacketModule*)params.p_data;
+ 
+    if (outPacket->actionType == 5) {
+        
+        errTime=GS->delaytimer-Ctime; //errTime
+
+        if(errTime>CI && outPacket->packetSendTime!=0){
+            Ctime=outPacket->packetSendTime;
+        } // if err > CI then update Cur CI TIME 
+
+        //trace("errTime : %u , Ctime : %u , outPacket->packetSendTime : %u , errTime : %u ," EOL, errTime, Ctime, outPacket->packetSendTime, errTime);   
+        if(errTime<=CI)
+        {
+            if(!outPacket->DirectionSet && Ctime!=0){
+                if(!(Currdirection ^ outPacket->Predirection))
+                {
+                    outPacket->Currdirection=Currdirection;
+                    outPacket->DirectionSet=true;
+                }
+            }// set cur 
+
+
+            if(!(outPacket->Predirection ^ outPacket->Currdirection) && outPacket->DirectionSet)
+            {
+                //GS->CollsndCount++;
+                //delay+=CI;
+                //trace("CollsndCount++ : %u , Nowtime : %u , sendtime : %u , errTime : %u ," EOL, GS->CollsndCount, GS->delaytimer, outPacket->packetSendTime, errTime);                
+            }
+            //trace("Pre : %u , Cur : %u , Coll? : %u , Set? : %u ," EOL, outPacket->Predirection, outPacket->Currdirection, !(outPacket->Predirection ^ outPacket->Currdirection), outPacket->DirectionSet);
+        } // if err < CI then whether M/S Coll?
+        
+
+     /*   //new collision test
+        if(outPacket->sendtime!=0)
+        {
+            errTime=GS->delaytimer-outPacket->packetSendTime;
+            if(errTime<=10 && !(outPacket->Predirection ^ outPacket->Currdirection) && outPacket->DirectionSet)
+            {
+                GS->CollsndCount++;
+                delay+=10;
+                trace("CollsndCount++ : %u , Nowtime : %u , sendtime : %u , errTime : %u ," EOL, GS->CollsndCount, GS->delaytimer, outPacket->packetSendTime, errTime);
+            }
+        }
+        trace("Pre : %u , Cur : %u , Coll? : %u , Set? : %u ," EOL, outPacket->Predirection, outPacket->Currdirection, !(outPacket->Predirection ^ outPacket->Currdirection), outPacket->DirectionSet);
+*/
+        outPacket->Predirection=outPacket->Currdirection;
+        outPacket->DirectionSet = true;
+
+        if(outPacket->DirectionSet)
+        {
+            Currdirection=outPacket->Currdirection;
+        }  //set cur con //new
+
+        outPacket->packetSendTime = GS->delaytimer+delay;        //+=delay?
+        delay=0; //update packetsendtime 
+
+        if (outPacket->sendtime == 0) {
+            outPacket->sendtime=outPacket->packetSendTime;
+        } // update sendtime
+
+
+        GS->CollsndCount++; //cal Coll count
+
+        if (GS->CollsndCount/GS->MultipleUnit!=0){
+            GS->MultipleCount+=GS->CollsndCount/GS->MultipleUnit;
+            GS->CollsndCount=GS->CollsndCount%GS->MultipleUnit;
+        } // cal Coll unit
+
+
+    trace("node id : %d, now index node id : %d, receiver node id : %d, generateTime : %u ms, sendTime : %u ms, forwardingTime : %u ms," EOL, outPacket->header.sender,GS->node.configuration.nodeId,outPacket->header.receiver,outPacket->timestamp,outPacket->sendtime,outPacket->packetSendTime);
+    trace("MultipleCount : %u , MultipleUnit : %u , CollsndCount : %u ," EOL, GS->MultipleCount, GS->MultipleUnit, GS->CollsndCount);
+
+    }
+
     return nrfErrToGeneric(sd_ble_gattc_write(connHandle, &writeParameters));    
 }
 
@@ -2186,7 +2269,25 @@ u32 FruityHal::GetRtcMs()
             ((NrfHalMemory*)GS->halMemory)->overflowPending = false;
         } 
     }
+
+    //new CalDelaytimer
+    if (CalDelay) {
+        GS->caltime = ((rtcTicks * 1000) / APP_TIMER_CLOCK_FREQ) + ((NrfHalMemory*)GS->halMemory)->time_ms;
+        CalDelay = 0;
+    }
+    GS->delaytimer = ((rtcTicks * 1000) / APP_TIMER_CLOCK_FREQ) + ((NrfHalMemory*)GS->halMemory)->time_ms;
+    GS->delaytimer = GS->delaytimer - GS->caltime + ((GS->caltick * 1000) / APP_TIMER_CLOCK_FREQ) + (GS->inittimeSinceSyncTime * 1000);
+    //誤差可能來自傳輸的延遲
+    //if(GS->caltick!=0){while (GS->delaytimer<(GS->timeManager.GetUtcTime()*1000-2000)){GS->delaytimer+=2000;}} //為了防止terminal的中斷處理造成時間不同步 誤差約<1000 故設為若誤差<2000則-=1000;}
     return ((rtcTicks * 1000) / APP_TIMER_CLOCK_FREQ) + ((NrfHalMemory*)GS->halMemory)->time_ms;
+}
+
+
+//new
+u32 FruityHal::UpdateDelayTimer() 
+{
+    CalDelay = 1;
+    return FruityHal::GetRtcMs();
 }
 
 u32 FruityHal::GetRtcDifferenceMs(u32 nowTimeMs, u32 previousTimeMs)
