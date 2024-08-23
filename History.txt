@@ -10,3 +10,7 @@ src/mesh/ConnectionHandle.h 與77code同步同步 搜尋new
 src/mesh/ConnectionManager.cpp 與77code同步同步 搜尋new
 src/mesh/ConnectionManager.h 與77code同步同步 搜尋new
 src/mesh/MeshConnection.cpp 與77code同步同步 搜尋new
+src/hal/FruityHal.h 與77code同步同步 搜尋new
+src/hal/nrf/FruityHalNrf.cpp 與77code同步同步 搜尋new
+src/types/ConnectionMessageTypes.h 與77code同步同步 搜尋new
+
