@@ -135,7 +135,7 @@ static_assert(false, "Featureset was not defined, which is mandatory!");
 //of connections configured in the ble stack (necessary for array sizing)
 //Cannot be changed in featureset as this must also be changed in the
 //linker script ram section at the same time
-#define TOTAL_NUM_CONNECTIONS 5
+#define TOTAL_NUM_CONNECTIONS 2
 
 // ########### Mesh Settings ##########################################
 

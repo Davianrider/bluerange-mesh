@@ -1,4 +1,5 @@
 2024/8/23
+
 src/base/GATTController.cpp 與77code同步 搜尋new
 src/base/GlobalState.h 與77code同步同步 搜尋new
 src/mesh/node.cpp 與77code同步同步 搜尋new
@@ -13,4 +14,9 @@ src/mesh/MeshConnection.cpp 與77code同步同步 搜尋new
 src/hal/FruityHal.h 與77code同步同步 搜尋new
 src/hal/nrf/FruityHalNrf.cpp 與77code同步同步 搜尋new
 src/types/ConnectionMessageTypes.h 與77code同步同步 搜尋new
+
+
+2024/9/1
+
+src/utility/TimeManager.cpp 與77code同步同步 搜尋new
 

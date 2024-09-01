@@ -90,14 +90,16 @@ void TimeManager::SetMasterTime(u32 syncTimeDs, u32 timeSinceSyncTimeDs, i16 off
 {
     this->syncTime = syncTimeDs;
     this->timeSinceSyncTime = timeSinceSyncTimeDs;
+    GS->caltick =  additionalTicks; //new test
+    GS->inittimeSinceSyncTime = timeSinceSyncTimeDs; //new test
     this->additionalTicks = additionalTicks;
     this->offset = offset;
     this->counter++;
     this->waitingForCorrection = false;
     this->timeCorrectionReceived = true;
-
+    FruityHal::UpdateDelayTimer(); // new Sync DelayTimer
     this->isTimeMaster = true;
-
+    //trace("master timeSinceSyncTime:%u",this->timeSinceSyncTime); //note test new
     //We inform the connection manager so that it resends the time sync messages.
     logt("TSYNC", "Received time by command! NodeId: %u", (u32)GS->node.configuration.nodeId);
     GS->cm.ResetTimeSync();
@@ -109,6 +111,8 @@ void TimeManager::SetTime(const TimeSyncInitial & timeSyncIntitialMessage)
     {
         this->syncTime = timeSyncIntitialMessage.syncTimeStamp;
         this->timeSinceSyncTime = timeSyncIntitialMessage.timeSincSyncTimeStamp;
+        GS->caltick = timeSyncIntitialMessage.additionalTicks; //new test
+        GS->inittimeSinceSyncTime = timeSyncIntitialMessage.timeSincSyncTimeStamp; //new test
         this->additionalTicks = timeSyncIntitialMessage.additionalTicks;
         this->offset = timeSyncIntitialMessage.offset;
         this->counter = timeSyncIntitialMessage.counter; //THIS is the main difference to SetTime(u32,u32,u32)!
@@ -116,9 +120,12 @@ void TimeManager::SetTime(const TimeSyncInitial & timeSyncIntitialMessage)
         this->timeCorrectionReceived = false;
 
         this->isTimeMaster = false;
-
+        GS->appTimerDs = timeSyncIntitialMessage.appTimerDs; //new 
+        trace("syncTime : %u timeSinceSyncTime : %u addticks : %u offset : %u counter : %u " EOL,  timeSyncIntitialMessage.syncTimeStamp,timeSyncIntitialMessage.timeSincSyncTimeStamp,timeSyncIntitialMessage.additionalTicks,timeSyncIntitialMessage.offset,timeSyncIntitialMessage.counter);
         //We inform the connection manager so that it resends the time sync messages.
+        //trace("timeSinceSyncTime:%u",this->timeSinceSyncTime); //note test new
         logt("TSYNC", "Received time by mesh! NodeId: %u, Partner: %u", (u32)GS->node.configuration.nodeId, (u32)timeSyncIntitialMessage.header.header.sender);
+        FruityHal::UpdateDelayTimer(); // new Sync DelayTimer
         GS->cm.ResetTimeSync();
     }
 }
@@ -163,6 +170,8 @@ void TimeManager::AddCorrection(u32 ticks)
     if (waitingForCorrection)
     {
         AddTicks(ticks);
+        GS->appTimerDs += (int(ticks / 3276.8)); //new update appTimerDS ticksPerSecond 32768
+        GS->caltick += ticks; //new
         this->waitingForCorrection = false;
         this->timeCorrectionReceived = true;
 
@@ -182,6 +191,8 @@ void TimeManager::ProcessTicks()
 
     additionalTicks -= seconds * ticksPerSecond;
 }
+
+
 
 void TimeManager::HandleUpdateTimestampMessages(ConnPacketHeader const * packetHeader, MessageLength dataLength)
 {
@@ -262,7 +273,7 @@ TimeSyncInitial TimeManager::GetTimeSyncIntialMessage(NodeId receiver) const
     retVal.additionalTicks = additionalTicks;
     retVal.offset = offset;
     retVal.counter = counter;
-    
+    retVal.appTimerDs = GS->appTimerDs;//new
     return retVal;
 }
 
