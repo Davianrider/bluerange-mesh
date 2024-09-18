@@ -135,7 +135,7 @@ static_assert(false, "Featureset was not defined, which is mandatory!");
 //of connections configured in the ble stack (necessary for array sizing)
 //Cannot be changed in featureset as this must also be changed in the
 //linker script ram section at the same time
-#define TOTAL_NUM_CONNECTIONS 2
+#define TOTAL_NUM_CONNECTIONS 4
 
 // ########### Mesh Settings ##########################################
 
@@ -223,7 +223,7 @@ static_assert(false, "Featureset was not defined, which is mandatory!");
 // The main timer tick interval in ticks defines how often the node
 // is woken up without receiving events. 6554 is a good value (32768 times a second)
 #ifndef MAIN_TIMER_TICK
-#define MAIN_TIMER_TICK 6554 //roughly 2 ds
+#define MAIN_TIMER_TICK 3276.8 //roughly 1 ds  //origenal value = 6554 //roughly 2 ds 
 #define MAIN_TIMER_DS_PER_TICK 2 //MUST MATCH the above setting
 #endif
 

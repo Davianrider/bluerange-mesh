@@ -2195,11 +2195,12 @@ joinMeBufferPacket* Node::DetermineBestClusterAsMaster()
 //Connect to big clusters but big clusters must connect nodes that are not able 
 u32 Node::CalculateClusterScoreAsMaster(const joinMeBufferPacket& packet) const
 {
-    //if(1) return 0;
+    if(1) return 0;
     //new test if slave node id > now node id return 0; 
-    if (packet.payload.sender < configuration.nodeId) return 0;    
+    //if (packet.payload.sender < configuration.nodeId) return 0;    
+    //if (packet.payload.sender != 5 && packet.payload.sender != 6) return 0; 
     //if (packet.payload.sender != 3 && packet.payload.sender != 4) return 0;  
-    //if (packet.payload.sender != 2) return 0; 
+    //if (packet.payload.sender != 2)  return 0; 
     //If the packet is too old, filter it out
     if (GS->appTimerDs - packet.receivedTimeDs > MAX_JOIN_ME_PACKET_AGE_DS) return 0;
 
@@ -2985,6 +2986,7 @@ void Node::PrintStatus(void) const
     const FruityHal::BleGapAddr addr = FruityHal::GetBleGapAddress();
 
     trace("**************" EOL);
+    //trace("one hub = 4(slave)" EOL);//new
     trace("Node %s (nodeId: %u) vers: %u, NodeKey: %02X:%02X:....:%02X:%02X" EOL EOL, RamConfig->GetSerialNumber(), configuration.nodeId, GS->config.GetFruityMeshVersion(),
             RamConfig->GetNodeKey()[0], RamConfig->GetNodeKey()[1], RamConfig->GetNodeKey()[14], RamConfig->GetNodeKey()[15]);
     SetTerminalTitle();
@@ -3293,7 +3295,7 @@ TerminalCommandHandlerReturnType Node::TerminalCommandHandler(const char* comman
             if (TERMARGS(3, "init"))
             {
                 root = destinationNode; //將root設為目標node
-                //printf("now root=%u\n\n", root);
+                trace("now root=%u\n\n", root);
                 SendModuleActionMessage(
                     MessageType::MODULE_TRIGGER_ACTION,
                     destinationNode,

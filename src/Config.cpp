@@ -131,8 +131,8 @@ void Conf::LoadDefaults(){
     enableSinkRouting = true;
     //Check if the BLE stack supports the number of connections and correct if not
 #ifdef SIM_ENABLED
-    totalInConnections = 3;
-    meshMaxInConnections = 2;
+    totalInConnections = 5; //3
+    meshMaxInConnections = 5; //2
 #endif
 
     meshMinConnectionInterval = (u16)MSEC_TO_UNITS(15, CONFIG_UNIT_1_25_MS);
@@ -292,7 +292,7 @@ void Conf::GenerateRandomSerialAndNodeId(){
     //Generate a random serial number for testing from the open source testing range (FMBBB - FM999)
     serialNumberIndex = (FruityHal::GetDeviceId() % (SERIAL_NUMBER_FM_TESTING_RANGE_END - SERIAL_NUMBER_FM_TESTING_RANGE_START)) + SERIAL_NUMBER_FM_TESTING_RANGE_START;
     //defaultNodeId = serialNumberIndex % NODE_ID_DEVICE_BASE_SIZE; //nodeId must stay within valid range
-    defaultNodeId=2;//new
+    defaultNodeId = 6;//new
 }
 
 //Tests if a memory region in flash storage is empty (0xFF)
