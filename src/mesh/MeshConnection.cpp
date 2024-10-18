@@ -483,6 +483,7 @@ void MeshConnection::PacketSuccessfullyQueuedWithSoftdevice(SizedData* sentData)
 void MeshConnection::DataSentHandler(const u8 * data, MessageLength length, u32 messageHandle)
 {
     const ConnPacketHeader* header = (const ConnPacketHeader*)data;
+ 
     if (header->messageType == MessageType::TIME_SYNC)
     {
         const TimeSyncHeader* header = (const TimeSyncHeader*)data;
@@ -492,6 +493,7 @@ void MeshConnection::DataSentHandler(const u8 * data, MessageLength length, u32 
             correctionTicksSuccessfullyWritten = true;
 #endif
             correctionTicks = GS->timeManager.GetLocalTimePoint() - syncSendingOrdered;
+            trace("correctionTicks : %u" EOL,correctionTicks);
         }
     }
 }
