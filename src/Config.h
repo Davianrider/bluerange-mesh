@@ -499,16 +499,16 @@ class Conf
         //(20-1024) (100-1024 for non connectable advertising!) Determines advertising interval in units of 0.625 millisecond.
         static constexpr u16 meshAdvertisingIntervalHigh = (u16)MSEC_TO_UNITS(100, CONFIG_UNIT_0_625_MS);
         //From 4 to 16384 (2.5ms to 10s) in 0.625ms Units
-        u16 meshScanIntervalHigh = 0;
+         u16 meshScanIntervalHigh;
         //From 4 to 16384 (2.5ms to 10s) in 0.625ms Units
-        u16 meshScanWindowHigh = 0;
+         u16 meshScanWindowHigh;
 
 
         //DISCOVERY_LOW
         //(20-1024) Determines scan interval in units of 0.625 millisecond.
-        u16 meshScanIntervalLow = 0;
+         u16 meshScanIntervalLow;
         //(2.5-1024) Determines scan window in units of 0.625 millisecond.
-        u16 meshScanWindowLow = 0;
+         u16 meshScanWindowLow;
 
 
         // ########### CONNECTION ################################################

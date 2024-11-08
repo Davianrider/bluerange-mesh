@@ -2195,12 +2195,12 @@ joinMeBufferPacket* Node::DetermineBestClusterAsMaster()
 //Connect to big clusters but big clusters must connect nodes that are not able 
 u32 Node::CalculateClusterScoreAsMaster(const joinMeBufferPacket& packet) const
 {
-    if(1) return 0;
+    //if(1) return 0;
     //new test if slave node id > now node id return 0; 
     //if (packet.payload.sender < configuration.nodeId) return 0;    
     //if (packet.payload.sender != 5 && packet.payload.sender != 6) return 0; 
     //if (packet.payload.sender != 3 && packet.payload.sender != 4) return 0;  
-    //if (packet.payload.sender != 2)  return 0; 
+    if (packet.payload.sender != 2)  return 0; 
     //If the packet is too old, filter it out
     if (GS->appTimerDs - packet.receivedTimeDs > MAX_JOIN_ME_PACKET_AGE_DS) return 0;
 
@@ -2986,9 +2986,24 @@ void Node::PrintStatus(void) const
     const FruityHal::BleGapAddr addr = FruityHal::GetBleGapAddress();
 
     trace("**************" EOL);
-    //trace("one hub = 4(slave)" EOL);//new
     trace("Node %s (nodeId: %u) vers: %u, NodeKey: %02X:%02X:....:%02X:%02X" EOL EOL, RamConfig->GetSerialNumber(), configuration.nodeId, GS->config.GetFruityMeshVersion(),
             RamConfig->GetNodeKey()[0], RamConfig->GetNodeKey()[1], RamConfig->GetNodeKey()[14], RamConfig->GetNodeKey()[15]);
+    
+    u16 meshMinConnectionIntervalValue = Conf::GetInstance().meshMinConnectionInterval * 1.25;
+    u16 meshMaxConnectionIntervalValue = Conf::GetInstance().meshMaxConnectionInterval * 1.25;
+    u16 meshScanIntervalHighValue = Conf::GetInstance().meshScanIntervalHigh * 0.625; 
+    u16 meshScanWindowHighValue = Conf::GetInstance().meshScanWindowHigh * 0.625;
+    u16 meshScanIntervalLowValue = Conf::GetInstance().meshScanIntervalLow * 0.625;
+    u16 meshScanWindowLowValue = Conf::GetInstance().meshScanWindowLow * 0.625;
+    u16 connectionEventValue = GS->connectionEventvalue * 1.25;
+    trace("meshMinConnectionIntervalValue : %u" EOL, meshMinConnectionIntervalValue);
+    trace("meshMaxConnectionIntervalValue : %u" EOL, meshMaxConnectionIntervalValue);
+    trace("meshScanIntervalHighValue : %u" EOL, meshScanIntervalHighValue);
+    trace("meshScanIntervalLowValue : %u" EOL, meshScanIntervalLowValue);
+    trace("meshScanWindowHighValue : %u" EOL, meshScanWindowHighValue);
+    trace("meshScanWindowLowValue : %u" EOL, meshScanWindowLowValue);
+    trace("connectionEventValue : %u" EOL EOL, connectionEventValue);
+     
     SetTerminalTitle();
     trace("Mesh clusterSize:%u, clusterId:%u, featureset: %s, boardid: %u" EOL, clusterSize, clusterId, FEATURESET_NAME, Boardconfig->boardType);
     trace("Enrolled %u: networkId:%u, deviceType:%u, NetKey %02X:%02X:....:%02X:%02X, UserBaseKey %02X:%02X:....:%02X:%02X" EOL,
@@ -3154,6 +3169,43 @@ void Node::RecordStorageEventHandler(u16 recordId, RecordStorageResultCode resul
     }
 }
 
+// //CE CE windowsize setting new
+// void Node::SetConnectionInterval(u16 minConnectionInterval, u16 maxConnectionInterval)
+// {
+//     const u16 minAllowedInterval = (u16)MSEC_TO_UNITS(7.5, CONFIG_UNIT_1_25_MS);  // 範例值（對應 BLE 的 7.5 ms）
+//     const u16 maxAllowedInterval = (u16)MSEC_TO_UNITS(4000, CONFIG_UNIT_1_25_MS); // 範例值（對應 BLE 的 4 秒）
+//     if (minConnectionInterval < minAllowedInterval || minConnectionInterval > maxAllowedInterval ||
+//         maxConnectionInterval < minAllowedInterval || maxConnectionInterval > maxAllowedInterval ||
+//         minConnectionInterval > maxConnectionInterval) {
+//         // 處理無效值
+//         trace("無效的連接間隔值！必須 7.5ms~4000ms " EOL);
+//         return;
+//     }
+//     Conf::meshMinConnectionInterval = (u16)MSEC_TO_UNITS(minConnectionInterval, CONFIG_UNIT_1_25_MS);
+//     Conf::meshMaxConnectionInterval = (u16)MSEC_TO_UNITS(maxConnectionInterval, CONFIG_UNIT_1_25_MS);
+// }
+
+// void Node::SetConnectionEvent(u16 connectionEvent)
+// {
+    
+// }
+
+// void Node::SetWindowSize(u16 scanInterval, u16 scanWindow)
+// {
+//     const u16 minAllowedInterval = (u16)MSEC_TO_UNITS(2.5, CONFIG_UNIT_0_625_MS);  // 範例值（對應 BLE 的 2.5 ms）
+//     const u16 maxAllowedInterval = (u16)MSEC_TO_UNITS(4000, CONFIG_UNIT_0_625_MS); // 範例值（對應 BLE 的 4 秒）
+//     if (scanInterval < minAllowedInterval || scanInterval > maxAllowedInterval ||
+//         scanWindow < minAllowedInterval || scanWindow > maxAllowedInterval ||
+//         scanInterval < scanWindow) {
+//         // 處理無效值
+//         trace("無效的掃描間隔值！必須 2.5ms~4000ms " EOL);
+//         return;
+//     }
+//     Conf::meshScanIntervalHigh = (u16)MSEC_TO_UNITS(scanInterval, CONFIG_UNIT_0_625_MS);
+//     Conf::meshScanIntervalLow = (u16)MSEC_TO_UNITS(scanInterval, CONFIG_UNIT_0_625_MS);
+//     Conf::meshScanWindowHigh = (u16)MSEC_TO_UNITS(scanWindow, CONFIG_UNIT_0_625_MS);
+//     Conf::meshScanWindowLow = (u16)MSEC_TO_UNITS(scanWindow, CONFIG_UNIT_0_625_MS);
+// }
 /*
  #########################################################################################################
  ### Terminal Methods
@@ -3245,6 +3297,14 @@ TerminalCommandHandlerReturnType Node::TerminalCommandHandler(const char* comman
             //But reroute it to our own node
             const NodeId destinationNode = Utility::TerminalArgumentToNodeId(commandArgs[1]);
 
+            // //CE CE windowsize setting new
+            // if (TERMARGS(3, "setci") && commandArgsSize >= 5)
+            // {
+            //     u16 minConnectionInterval = Utility::StringToU16(commandArgs[4]);
+            //     u16 maxConnectionInterval = Utility::StringToU16(commandArgs[5]);
+            //     SetConnectionInterval(minConnectionInterval, maxConnectionInterval);
+            //     return TerminalCommandHandlerReturnType::SUCCESS;
+            // }
             //new test
             if (TERMARGS(3, "flag")) 
             {

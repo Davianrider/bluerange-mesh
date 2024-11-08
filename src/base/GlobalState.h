@@ -94,6 +94,8 @@ class GlobalState
         u32 currentEventBuffer[15 + NRF_SDH_BLE_GATT_MAX_MTU_SIZE / 4]; //This value was picked arbitrarily so that the buffer will be big enough to fit all kinds of events. This is more than enough for all event types and is simpler than using the complex macros from the SDK to pick the correct size.
         static constexpr u16 SIZE_OF_EVENT_BUFFER = sizeof(currentEventBuffer);
 #endif
+        //read connection event value new
+        u16 connectionEventvalue;
         //PDR new
         u32 rcvCount = 0;
         u32 sndCount = 0;

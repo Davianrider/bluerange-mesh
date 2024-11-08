@@ -457,4 +457,10 @@ private:
         
         bool GetKey(FmKeyId fmKeyId, u8* keyOut) const;
         bool IsPreferredConnection(NodeId id) const;
+
+        // //CE CE windowsize setting new
+        // void SetConnectionInterval(u16 minConnectionInterval, u16 maxConnectionInterval);
+        // void SetConnectionEvent(u16 connectionEvent);
+        // void SetWindowSize(u16 scanInterval, u16 scanWindow);
+
 };

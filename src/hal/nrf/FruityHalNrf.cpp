@@ -379,7 +379,9 @@ ErrorType FruityHal::BleStackInit()
     // Configure the connection count.
     ble_cfg.conn_cfg.conn_cfg_tag                     = BLE_CONN_CFG_TAG_FM;
     ble_cfg.conn_cfg.params.gap_conn_cfg.conn_count   = GS->config.totalInConnections + GS->config.totalOutConnections;
-    ble_cfg.conn_cfg.params.gap_conn_cfg.event_length = 4; //4 units = 5ms (1.25ms steps) this is the time used to handle one connection
+    ble_cfg.conn_cfg.params.gap_conn_cfg.event_length = 24; //4 units = 5ms (1.25ms steps) this is the time used to handle one connection
+
+    GS->connectionEventvalue = ble_cfg.conn_cfg.params.gap_conn_cfg.event_length; // new
 
     err = sd_ble_cfg_set(BLE_CONN_CFG_GAP, &ble_cfg, ram_start);
     if(err){
