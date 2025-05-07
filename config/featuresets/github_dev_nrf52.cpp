@@ -114,7 +114,7 @@ u32 InitializeModules_github_dev_nrf52(bool createModule)
 
 DeviceType GetDeviceType_github_dev_nrf52()
 {
-    return DeviceType::STATIC;
+    return DeviceType::SINK;
 }
 
 Chipset GetChipset_github_dev_nrf52()

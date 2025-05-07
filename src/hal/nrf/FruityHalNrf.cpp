@@ -379,7 +379,7 @@ ErrorType FruityHal::BleStackInit()
     // Configure the connection count.
     ble_cfg.conn_cfg.conn_cfg_tag                     = BLE_CONN_CFG_TAG_FM;
     ble_cfg.conn_cfg.params.gap_conn_cfg.conn_count   = GS->config.totalInConnections + GS->config.totalOutConnections;
-    ble_cfg.conn_cfg.params.gap_conn_cfg.event_length = 24; //4 units = 5ms (1.25ms steps) this is the time used to handle one connection
+    ble_cfg.conn_cfg.params.gap_conn_cfg.event_length = 8; //4 units = 5ms (1.25ms steps) this is the time used to handle one connection
 
     GS->connectionEventvalue = ble_cfg.conn_cfg.params.gap_conn_cfg.event_length; // new
 
@@ -470,7 +470,7 @@ ErrorType FruityHal::BleStackInit()
     //We also configure connection event length extension to increase the throughput
     ble_opt_t opt;
     CheckedMemset(&opt, 0x00, sizeof(opt));
-    opt.common_opt.conn_evt_ext.enable = 1;
+    opt.common_opt.conn_evt_ext.enable = 0;
 
     err = sd_ble_opt_set(BLE_COMMON_OPT_CONN_EVT_EXT, &opt);
     if (err != 0) logt("ERROR", "Could not configure conn length extension %u", err);
@@ -1939,12 +1939,12 @@ ErrorType FruityHal::BleGattWrite(u16 connHandle, BleGattWriteParams const & par
 
 
         GS->CollsndCount++; //cal Coll count
-
-        if (GS->CollsndCount/GS->MultipleUnit!=0){
-            GS->MultipleCount+=GS->CollsndCount/GS->MultipleUnit;
-            GS->CollsndCount=GS->CollsndCount%GS->MultipleUnit;
-        } // cal Coll unit
-
+        if (GS->MultipleUnit != 0) {
+            if (GS->CollsndCount / GS->MultipleUnit != 0) {
+                GS->MultipleCount += GS->CollsndCount / GS->MultipleUnit;
+                GS->CollsndCount = GS->CollsndCount % GS->MultipleUnit;
+            } // cal Coll unit
+        }
 
     trace("node id : %d, now index node id : %d, receiver node id : %d, generateTime : %u ms, sendTime : %u ms, forwardingTime : %u ms," EOL, outPacket->header.sender,GS->node.configuration.nodeId,outPacket->header.receiver,outPacket->timestamp,outPacket->sendtime,outPacket->packetSendTime);
     trace("MultipleCount : %u , MultipleUnit : %u , CollsndCount : %u ," EOL, GS->MultipleCount, GS->MultipleUnit, GS->CollsndCount);

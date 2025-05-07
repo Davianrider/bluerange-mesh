@@ -151,17 +151,17 @@ static_assert(false, "Featureset was not defined, which is mandatory!");
 
 // Each of the connections has a buffer for outgoing packets, this is its size in bytes
 #ifndef MAX_MESH_PACKET_SIZE
-#define MAX_MESH_PACKET_SIZE 200
+#define MAX_MESH_PACKET_SIZE 200 //200
 #endif
 
 // The size of each send queue chunk in bytes. See: ConnectionQueueMemoryChunk
 #ifndef CONNECTION_QUEUE_MEMORY_CHUNK_SIZE
-#define CONNECTION_QUEUE_MEMORY_CHUNK_SIZE 256
+#define CONNECTION_QUEUE_MEMORY_CHUNK_SIZE 256 //256
 #endif
 
 // The total amount of send queue chunks. See: ConnectionQueueMemoryChunk
 #ifndef CONNECTION_QUEUE_MEMORY_CHUNK_AMOUNT
-#define CONNECTION_QUEUE_MEMORY_CHUNK_AMOUNT 40
+#define CONNECTION_QUEUE_MEMORY_CHUNK_AMOUNT 40 //40
 #endif
 
 // The maximum amount of chunks one connection can hold is limited by CONNECTION_QUEUE_MEMORY_MAX_CHUNKS_PER_CONNECTION.
@@ -169,7 +169,7 @@ static_assert(false, "Featureset was not defined, which is mandatory!");
 // Reestablishment. In such a case the rest of the connections have to share the rest of the chunks. If this rest gets
 // to low, a high amount of dropped packets is to be expected and should therefore be avoided.
 #ifndef CONNECTION_QUEUE_MEMORY_MAX_CHUNKS_PER_CONNECTION
-#define CONNECTION_QUEUE_MEMORY_MAX_CHUNKS_PER_CONNECTION 25
+#define CONNECTION_QUEUE_MEMORY_MAX_CHUNKS_PER_CONNECTION 25 //25
 #endif
 
 // Each connection does also have a buffer to assemble packets that were split into 20 byte chunks

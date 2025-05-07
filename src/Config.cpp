@@ -135,8 +135,8 @@ void Conf::LoadDefaults(){
     meshMaxInConnections = 5; //2
 #endif
 
-    meshMinConnectionInterval = (u16)MSEC_TO_UNITS(200, CONFIG_UNIT_1_25_MS);
-    meshMaxConnectionInterval = (u16)MSEC_TO_UNITS(200, CONFIG_UNIT_1_25_MS);
+    meshMinConnectionInterval = (u16)MSEC_TO_UNITS(100, CONFIG_UNIT_1_25_MS);
+    meshMaxConnectionInterval = (u16)MSEC_TO_UNITS(100, CONFIG_UNIT_1_25_MS);
 
 #if IS_ACTIVE(CONN_PARAM_UPDATE)
     // Initialize the long term connection intervals to the same values as the
@@ -145,11 +145,11 @@ void Conf::LoadDefaults(){
     meshMaxLongTermConnectionInterval = meshMaxConnectionInterval;
 #endif
 
-    meshScanIntervalHigh = 320; //FIXME_HAL: 120 units = 75ms (0.625ms steps)
-    meshScanWindowHigh = 32; //FIXME_HAL: 12 units = 7.5ms (0.625ms steps)
+    meshScanIntervalHigh = 160; //FIXME_HAL: 120 units = 75ms (0.625ms steps)
+    meshScanWindowHigh = 16; //FIXME_HAL: 12 units = 7.5ms (0.625ms steps)
 
-    meshScanIntervalLow = (u16)MSEC_TO_UNITS(200, CONFIG_UNIT_0_625_MS);
-    meshScanWindowLow = (u16)MSEC_TO_UNITS(20, CONFIG_UNIT_0_625_MS);
+    meshScanIntervalLow = (u16)MSEC_TO_UNITS(100, CONFIG_UNIT_0_625_MS);
+    meshScanWindowLow = (u16)MSEC_TO_UNITS(10, CONFIG_UNIT_0_625_MS);
 
     highDiscoveryTimeoutSec = 0;
 

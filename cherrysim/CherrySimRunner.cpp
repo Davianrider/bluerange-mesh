@@ -298,10 +298,10 @@ SimConfiguration CherrySimRunner::CreateDefaultSimConfiguration()
     simConfig.terminalId = 1; //Enter -1 to disable, 0 for all nodes, or a specific id
 
     simConfig.nodeConfigName.insert({ "prod_sink_nrf52", 1});
-    simConfig.nodeConfigName.insert({ "prod_mesh_nrf52", 7 });
+    simConfig.nodeConfigName.insert({ "prod_mesh_nrf52", 2 });
 
-    simConfig.simOtherDelay = 100000; // Enter 1 - 100000 to send sim_other message only each ... simulation steps, this increases the speed significantly
-    simConfig.playDelay = 0; //Allows us to view the simulation slower than simulated, is added after each step
+    simConfig.simOtherDelay = 10000; // Enter 1 - 100000 to send sim_other message only each ... simulation steps, this increases the speed significantly
+    simConfig.playDelay = 1; //Allows us to view the simulation slower than simulated, is added after each step
 
     simConfig.interruptProbability = UINT32_MAX / 10;
 
@@ -309,7 +309,7 @@ SimConfiguration CherrySimRunner::CreateDefaultSimConfiguration()
     simConfig.sdBleGapAdvDataSetFailProbability = 0;// UINT32_MAX * 0.0001; //Simulate fails on setting adv Data in the softdevice
     simConfig.sdBusyProbability = UINT32_MAX / 100;// UINT32_MAX * 0.0001; //Simulates getting back busy errors from the softdevice
     simConfig.simulateAsyncFlash = true; //Simulates asynchronous flash operations, rather then sending the ACK immediately
-    simConfig.asyncFlashCommitTimeProbability = UINT32_MAX / 10 * 9;
+    simConfig.asyncFlashCommitTimeProbability = ( UINT32_MAX / 10 ) * 9;
 
     simConfig.importFromJson = false; //Set to true in order to not generate nodes
     simConfig.siteJsonPath = "testsite.json";

@@ -621,6 +621,14 @@ void MeshConnection::StartHandshakeAfterMtuExchange()
 
     logt("HANDSHAKE", "############ Handshake starting ###############");
 
+     // new: 取得當前設備類型
+     DeviceConfiguration config;
+     ErrorType err = FruityHal::GetDeviceConfiguration(config);
+     DeviceType deviceType;
+     if (err == ErrorType::SUCCESS) {
+         deviceType = static_cast<DeviceType>(config.deviceType);
+     }
+
     connectionState = ConnectionState::HANDSHAKING;
     handshakeStartedDs = GS->appTimerDs; //Refresh handshake start time
 
@@ -633,6 +641,7 @@ void MeshConnection::StartHandshakeAfterMtuExchange()
     packet.payload.clusterId = clusterIDBackup;
     packet.payload.clusterSize = clusterSizeBackup;
     packet.payload.meshWriteHandle = GS->node.meshService.sendMessageCharacteristicHandle.valueHandle; //Our own write handle
+    packet.payload.deviceType = GET_DEVICE_TYPE();  //new: 設備類型
 
     //Now we set the hop counter to the closest sink
     packet.payload.hopsToSink = GS->cm.GetMeshHopsToShortestSink(this);
@@ -694,7 +703,10 @@ void MeshConnection::ReceiveHandshakePacketHandler(BaseConnectionSendData* sendD
                 handshakeFailCode = LiveReportHandshakeFailCode::SAME_CLUSTERID;
             }
             //PART 2: This is more probable, he's in a different cluster
-            else if (packet->payload.clusterSize < clusterSizeBackup)
+            // original code
+            // else if (packet->payload.clusterSize < clusterSizeBackup)
+            // new : add && packet->payload.deviceType != DeviceType::SINK
+            else if (packet->payload.clusterSize < clusterSizeBackup && packet->payload.deviceType != DeviceType::SINK)
             {
                 //I am the bigger cluster
                 logt("HANDSHAKE", "I am bigger %d vs %d", packet->payload.clusterSize, clusterSizeBackup);

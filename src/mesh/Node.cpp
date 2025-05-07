@@ -82,8 +82,10 @@ u32 MultipleCount[16];
 u32 CollsndCount[16];
 u32 avgDelay[16];
 int rcvCount[16];
+const char* cmd[16];
 
 int ssettime=-1; // ssettime 開關
+int delayTime = -1; // delayTime 開關
 int adjust=-1; //調整誤差 開關
 int errorIndex=0; //誤差值
 
@@ -1961,7 +1963,15 @@ void Node::UpdateJoinMePacket()
     packet->sender = configuration.nodeId;
     packet->clusterId = this->clusterId;
     packet->clusterSize = this->clusterSize;
-    packet->freeMeshInConnections = GS->cm.freeMeshInConnections;
+    // original code
+    // packet->freeMeshInConnections = GS->cm.freeMeshInConnections;
+    // new : sink has no free in connections
+    if (GET_DEVICE_TYPE() == DeviceType::SINK) {
+        packet->freeMeshInConnections = 0;
+    }
+    else{
+        packet->freeMeshInConnections = GS->cm.freeMeshInConnections;
+    }
     packet->freeMeshOutConnections = GS->cm.freeMeshOutConnections;
 
     //A leaf only has one free in connection
@@ -2047,92 +2057,229 @@ void Node::StartFastJoinMeAdvertising()
 //If the other clusters were not good and we have something better, we advertise it.
 Node::DecisionStruct Node::DetermineBestClusterAvailable(void)
 {
+    // //FruityMesh original code
+    // DecisionStruct result = { DecisionResult::NO_NODES_FOUND, 0, 0 };
+
+    // joinMeBufferPacket* bestClusterAsMaster = DetermineBestClusterAsMaster();
+
+    // //If we still do not have a freeOutConnection, we have no viable cluster to connect to
+    // if (GS->cm.freeMeshOutConnections > 0)
+    // {
+    //     //Now, if we want to be a master in the connection, we simply answer the ad packet that
+    //     //informs us about that cluster
+    //     if (bestClusterAsMaster != nullptr)
+    //     {
+    //         currentAckId = 0;
+
+    //         FruityHal::BleGapAddr address = bestClusterAsMaster->addr;
+
+    //         //Choose a different connection interval for leaf nodes
+    //         u16 connectionIv = Conf::GetInstance().meshMinConnectionInterval;
+    //         if(bestClusterAsMaster->payload.deviceType == DeviceType::LEAF){
+    //             connectionIv = MSEC_TO_UNITS(90, CONFIG_UNIT_1_25_MS);
+    //         }
+
+    //         ErrorType err = GS->cm.ConnectAsMaster(bestClusterAsMaster->payload.sender, &address, bestClusterAsMaster->payload.meshWriteHandle, connectionIv);
+
+    //         //Note the time that we tried to connect to this node so that we can blacklist it for some time if it does not work
+    //         if (err == ErrorType::SUCCESS) {
+    //             bestClusterAsMaster->lastConnectAttemptDs = GS->appTimerDs;
+    //             if(bestClusterAsMaster->attemptsToConnect <= 20) bestClusterAsMaster->attemptsToConnect++;
+    //         }
+
+    //         result.result = DecisionResult::CONNECT_AS_MASTER;
+    //         result.preferredPartner = bestClusterAsMaster->payload.sender;
+    //         return result;
+    //     }
+    // }
+
+    // //If no good cluster could be found (all are bigger than mine)
+    // //Find the best cluster that should connect to us (we as slave)
+    // currentAckId = 0;
+    // joinMeBufferPacket* bestClusterAsSlave = DetermineBestClusterAsSlave();
+
+    // //Set our ack field to the best cluster that we want to be a part of
+    // if (bestClusterAsSlave != nullptr)
+    // {
+    //     currentAckId = bestClusterAsSlave->payload.clusterId;
+
+    //     logt("DECISION", "Other clusters are bigger, we are going to be a slave of %u", currentAckId);
+
+    //     //For nodes with only 1 meshInConnection, we must disconnect from a cluster if a bigger cluster is found nearby
+    //     if (GS->config.meshMaxInConnections == 1) {
+
+    //         //Check if we have a recently established connection and do not disconnect if yes bofore the handshake has not timed out
+    //         bool freshConnectionAvailable = false;
+    //         BaseConnections conns = GS->cm.GetBaseConnections(ConnectionDirection::INVALID);
+    //         for (u32 i = 0; i < conns.count; i++) {
+    //             BaseConnectionHandle conn = conns.handles[i];
+    //             if (conn) {
+    //                 if (conn.GetCreationTimeDs() + Conf::meshHandshakeTimeoutDs > GS->appTimerDs) {
+    //                     freshConnectionAvailable = true;
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //         //Only if we are not currently doing a handshake and if we do not have a freeInConnection
+    //         if (!freshConnectionAvailable && GS->cm.freeMeshInConnections == 0) {
+    //             if (
+    //                 //Check if we have either different clusterSizes or if similar, only disconnect randomly
+    //                 //to prevent recurrent situations where two nodes will always disconnect at the same time
+    //                 GetClusterSize() != bestClusterAsSlave->payload.clusterSize
+    //                 || Utility::GetRandomInteger() < UINT32_MAX / 4
+    //             ) {
+    //                 GS->cm.ForceDisconnectOtherMeshConnections(nullptr, AppDisconnectReason::SHOULD_WAIT_AS_SLAVE);
+
+    //                 SetClusterSize(1);
+    //                 clusterId = GenerateClusterID();
+    //             }
+    //         }
+    //     }
+
+    //     UpdateJoinMePacket();
+
+    //     result.result = DecisionResult::CONNECT_AS_SLAVE;
+    //     result.preferredPartner = bestClusterAsSlave->payload.sender;
+    //     return result;
+    // }
+
+    // logt("DECISION", "no cluster found");
+
+    // result.result = DecisionResult::NO_NODES_FOUND;
+    // return result;
+    
+    // // fruityMesh original code
+
+    // new: FruityMesh modified code
     DecisionStruct result = { DecisionResult::NO_NODES_FOUND, 0, 0 };
+    
+    // new: 取得當前設備類型
+    DeviceConfiguration config;
+    ErrorType err = FruityHal::GetDeviceConfiguration(config);
+    DeviceType deviceType;
+    if (err == ErrorType::SUCCESS) {
+        deviceType = static_cast<DeviceType>(config.deviceType);
+    }
 
-    joinMeBufferPacket* bestClusterAsMaster = DetermineBestClusterAsMaster();
-
-    //If we still do not have a freeOutConnection, we have no viable cluster to connect to
-    if (GS->cm.freeMeshOutConnections > 0)
-    {
-        //Now, if we want to be a master in the connection, we simply answer the ad packet that
-        //informs us about that cluster
-        if (bestClusterAsMaster != nullptr)
-        {
+    // new: 如果是 Sink，優先建立 Mesh (當 Master)
+    if (deviceType == DeviceType::SINK && GS->cm.freeMeshOutConnections > 0) {
+         
+        // new: 嘗試作為 Master 連接最好的節點
+        joinMeBufferPacket* bestClusterAsMaster = DetermineBestClusterAsMaster();
+        if (GS->cm.freeMeshOutConnections > 0 && bestClusterAsMaster != nullptr) {
             currentAckId = 0;
 
             FruityHal::BleGapAddr address = bestClusterAsMaster->addr;
 
-            //Choose a different connection interval for leaf nodes
             u16 connectionIv = Conf::GetInstance().meshMinConnectionInterval;
-            if(bestClusterAsMaster->payload.deviceType == DeviceType::LEAF){
+            if (bestClusterAsMaster->payload.deviceType == DeviceType::LEAF) {
                 connectionIv = MSEC_TO_UNITS(90, CONFIG_UNIT_1_25_MS);
             }
 
             ErrorType err = GS->cm.ConnectAsMaster(bestClusterAsMaster->payload.sender, &address, bestClusterAsMaster->payload.meshWriteHandle, connectionIv);
-
-            //Note the time that we tried to connect to this node so that we can blacklist it for some time if it does not work
             if (err == ErrorType::SUCCESS) {
                 bestClusterAsMaster->lastConnectAttemptDs = GS->appTimerDs;
-                if(bestClusterAsMaster->attemptsToConnect <= 20) bestClusterAsMaster->attemptsToConnect++;
+                if (bestClusterAsMaster->attemptsToConnect <= 20) {
+                    bestClusterAsMaster->attemptsToConnect++;
+                }
             }
 
             result.result = DecisionResult::CONNECT_AS_MASTER;
             result.preferredPartner = bestClusterAsMaster->payload.sender;
             return result;
         }
-    }
+    }else {
+        //new: 先以slave找出最好的master進行連線
+        //If no good cluster could be found (all are bigger than mine)
+        //Find the best cluster that should connect to us (we as slave)
+        currentAckId = 0;
+        joinMeBufferPacket* bestClusterAsSlave = DetermineBestClusterAsSlave();
 
-    //If no good cluster could be found (all are bigger than mine)
-    //Find the best cluster that should connect to us (we as slave)
-    currentAckId = 0;
-    joinMeBufferPacket* bestClusterAsSlave = DetermineBestClusterAsSlave();
+        if(GET_DEVICE_TYPE() == DeviceType::SINK){
+            bestClusterAsSlave = nullptr;
+        }
 
-    //Set our ack field to the best cluster that we want to be a part of
-    if (bestClusterAsSlave != nullptr)
-    {
-        currentAckId = bestClusterAsSlave->payload.clusterId;
+        //Set our ack field to the best cluster that we want to be a part of
+        if (bestClusterAsSlave != nullptr)
+        {
+            currentAckId = bestClusterAsSlave->payload.clusterId;
+            logt("DECISION", "Other clusters are bigger, we are going to be a slave of %u", currentAckId);
+             //For nodes with only 1 meshInConnection, we must disconnect from a cluster if a bigger cluster is found nearby
+             if (GS->config.meshMaxInConnections == 1) {
+ 
+                //Check if we have a recently established connection and do not disconnect if yes bofore the handshake has not timed out
+                bool freshConnectionAvailable = false;
+                BaseConnections conns = GS->cm.GetBaseConnections(ConnectionDirection::INVALID);
+                for (u32 i = 0; i < conns.count; i++) {
+                    BaseConnectionHandle conn = conns.handles[i];
+                    if (conn) {
+                        if (conn.GetCreationTimeDs() + Conf::meshHandshakeTimeoutDs > GS->appTimerDs) {
+                            freshConnectionAvailable = true;
+                            break;
+                        }
+                    }
+                }
+                //Only if we are not currently doing a handshake and if we do not have a freeInConnection
+                if (!freshConnectionAvailable && GS->cm.freeMeshInConnections == 0) {
+                    if (
+                        //Check if we have either different clusterSizes or if similar, only disconnect randomly
+                        //to prevent recurrent situations where two nodes will always disconnect at the same time
+                        GetClusterSize() != bestClusterAsSlave->payload.clusterSize
+                        || Utility::GetRandomInteger() < UINT32_MAX / 4
+                    ) {
+                        GS->cm.ForceDisconnectOtherMeshConnections(nullptr, AppDisconnectReason::SHOULD_WAIT_AS_SLAVE);
 
-        logt("DECISION", "Other clusters are bigger, we are going to be a slave of %u", currentAckId);
-
-        //For nodes with only 1 meshInConnection, we must disconnect from a cluster if a bigger cluster is found nearby
-        if (GS->config.meshMaxInConnections == 1) {
-
-            //Check if we have a recently established connection and do not disconnect if yes bofore the handshake has not timed out
-            bool freshConnectionAvailable = false;
-            BaseConnections conns = GS->cm.GetBaseConnections(ConnectionDirection::INVALID);
-            for (u32 i = 0; i < conns.count; i++) {
-                BaseConnectionHandle conn = conns.handles[i];
-                if (conn) {
-                    if (conn.GetCreationTimeDs() + Conf::meshHandshakeTimeoutDs > GS->appTimerDs) {
-                        freshConnectionAvailable = true;
-                        break;
+                        SetClusterSize(1);
+                        clusterId = GenerateClusterID();
                     }
                 }
             }
-            //Only if we are not currently doing a handshake and if we do not have a freeInConnection
-            if (!freshConnectionAvailable && GS->cm.freeMeshInConnections == 0) {
-                if (
-                    //Check if we have either different clusterSizes or if similar, only disconnect randomly
-                    //to prevent recurrent situations where two nodes will always disconnect at the same time
-                    GetClusterSize() != bestClusterAsSlave->payload.clusterSize
-                    || Utility::GetRandomInteger() < UINT32_MAX / 4
-                ) {
-                    GS->cm.ForceDisconnectOtherMeshConnections(nullptr, AppDisconnectReason::SHOULD_WAIT_AS_SLAVE);
-
-                    SetClusterSize(1);
-                    clusterId = GenerateClusterID();
-                }
-            }
+            UpdateJoinMePacket();
+ 
+            result.result = DecisionResult::CONNECT_AS_SLAVE;
+            result.preferredPartner = bestClusterAsSlave->payload.sender;
+            return result;
         }
 
-        UpdateJoinMePacket();
+        //new: 如果沒有找到合適的 master，再以Master找到適合的 Slave 進行連線
+        joinMeBufferPacket* bestClusterAsMaster = DetermineBestClusterAsMaster();
 
-        result.result = DecisionResult::CONNECT_AS_SLAVE;
-        result.preferredPartner = bestClusterAsSlave->payload.sender;
+        //If we still do not have a freeOutConnection, we have no viable cluster to connect to
+        if (GS->cm.freeMeshOutConnections > 0)
+        {
+            //Now, if we want to be a master in the connection, we simply answer the ad packet that
+            //informs us about that cluster
+            if (bestClusterAsMaster != nullptr)
+            {
+                currentAckId = 0;
+
+                FruityHal::BleGapAddr address = bestClusterAsMaster->addr;
+
+                //Choose a different connection interval for leaf nodes
+                u16 connectionIv = Conf::GetInstance().meshMinConnectionInterval;
+                if(bestClusterAsMaster->payload.deviceType == DeviceType::LEAF){
+                    connectionIv = MSEC_TO_UNITS(90, CONFIG_UNIT_1_25_MS);
+                }
+
+                ErrorType err = GS->cm.ConnectAsMaster(bestClusterAsMaster->payload.sender, &address, bestClusterAsMaster->payload.meshWriteHandle, connectionIv);
+
+                //Note the time that we tried to connect to this node so that we can blacklist it for some time if it does not work
+                if (err == ErrorType::SUCCESS) {
+                    bestClusterAsMaster->lastConnectAttemptDs = GS->appTimerDs;
+                    if(bestClusterAsMaster->attemptsToConnect <= 20) bestClusterAsMaster->attemptsToConnect++;
+                }
+
+                result.result = DecisionResult::CONNECT_AS_MASTER;
+                result.preferredPartner = bestClusterAsMaster->payload.sender;
+                return result;
+            }
+        }
+        
+        logt("DECISION", "no cluster found");
+        
+        result.result = DecisionResult::NO_NODES_FOUND;
         return result;
     }
-
-    logt("DECISION", "no cluster found");
 
     result.result = DecisionResult::NO_NODES_FOUND;
     return result;
@@ -2201,6 +2348,17 @@ u32 Node::CalculateClusterScoreAsMaster(const joinMeBufferPacket& packet) const
     //if (packet.payload.sender != 5 && packet.payload.sender != 6) return 0; 
     //if (packet.payload.sender != 3 && packet.payload.sender != 4) return 0;  
     if (packet.payload.sender != 2)  return 0; 
+    //if (packet.payload.sender != 3)  return 0; 
+    //if (packet.payload.sender != 4)  return 0; 
+    //if (packet.payload.sender != 2 && packet.payload.sender != 3 && packet.payload.sender != 4)  return 0; 
+
+    //new: 取得當前設備類型
+    DeviceConfiguration config;
+    ErrorType err = FruityHal::GetDeviceConfiguration(config);
+    DeviceType deviceType;
+    if (err == ErrorType::SUCCESS)
+    deviceType = static_cast<DeviceType>(config.deviceType);
+
     //If the packet is too old, filter it out
     if (GS->appTimerDs - packet.receivedTimeDs > MAX_JOIN_ME_PACKET_AGE_DS) return 0;
 
@@ -2213,8 +2371,11 @@ u32 Node::CalculateClusterScoreAsMaster(const joinMeBufferPacket& packet) const
     //If the other node wants to connect as a slave to another cluster, do not connect
     if (packet.payload.ackField != 0 && packet.payload.ackField != this->clusterId) return 0;
 
-    //If the other cluster is bigger, we cannot connect as master
-    if (packet.payload.clusterSize > GetClusterSize()) return 0;
+    // //If the other cluster is bigger, we cannot connect as master
+    // if (packet.payload.clusterSize > GetClusterSize()) return 0;
+    //new: add "&& GET_DEVICE_TYPE() != DeviceType::SINK" to prevent sink from connecting to be a slave
+    if (packet.payload.clusterSize > GetClusterSize() && GET_DEVICE_TYPE() != DeviceType::SINK) return 0;
+
 
     //Check if we recently tried to connect to him and blacklist him for a short amount of time
     if (
@@ -2247,7 +2408,20 @@ u32 Node::CalculateClusterScoreAsMaster(const joinMeBufferPacket& packet) const
 //If there are only bigger clusters around, we want to find the best
 //And set its id in our ack field
 u32 Node::CalculateClusterScoreAsSlave(const joinMeBufferPacket& packet) const
-{
+{    
+    //new: 取得當前設備類型
+    DeviceConfiguration config;
+    ErrorType err = FruityHal::GetDeviceConfiguration(config);
+    DeviceType deviceType;
+    if (err == ErrorType::SUCCESS)
+    deviceType = static_cast<DeviceType>(config.deviceType);
+
+    if (deviceType == DeviceType::SINK) return 0;
+
+    //if (packet.payload.hopsToSink < 0) return 0;
+ 
+    if (packet.payload.freeMeshOutConnections == 0) return 0;
+
     //If the packet is too old, filter it out
     if (GS->appTimerDs - packet.receivedTimeDs > MAX_JOIN_ME_PACKET_AGE_DS) return 0;
 
@@ -2256,16 +2430,25 @@ u32 Node::CalculateClusterScoreAsSlave(const joinMeBufferPacket& packet) const
 
     //Do not check for freeOut == 0 as the partner will probably free up a conneciton for us and we should be ready
 
-    //We will only be a slave of a bigger or equal cluster
-    if (packet.payload.clusterSize < GetClusterSize()) return 0;
+    // //We will only be a slave of a bigger or equal cluster
+    // if (packet.payload.clusterSize < GetClusterSize()) return 0;
+    //new: add "&& packet.payload.deviceType != DeviceType::SINK" to prevent sink from connecting to be a slave
+    if (packet.payload.clusterSize < GetClusterSize() && packet.payload.deviceType != DeviceType::SINK) return 0;
 
     //Connection should have a minimum of stability
     if(packet.rssi < STABLE_CONNECTION_RSSI_THRESHOLD) return 0;
 
     u32 rssiScore = 100 + packet.rssi;
 
-    //Choose the one with the biggest cluster size, if there are more, prefer the most outConnections
-    u32 score = (u32)(packet.payload.clusterSize) * 10000 + (u32)(packet.payload.freeMeshOutConnections) * 100 + rssiScore;
+    //new: add sink node weight score 
+    u32 score = 0;
+    if(packet.payload.deviceType == DeviceType::SINK){
+        score = 100000;
+    }
+    score += (u32)(packet.payload.clusterSize) * 10000 + (u32)(packet.payload.freeMeshOutConnections) * 100 + rssiScore;
+
+    // //Choose the one with the biggest cluster size, if there are more, prefer the most outConnections
+    // u32 score = (u32)(packet.payload.clusterSize) * 10000 + (u32)(packet.payload.freeMeshOutConnections) * 100 + rssiScore;
 
     return ModifyScoreBasedOnPreferredPartners(score, packet.payload.sender);
 }
@@ -2545,6 +2728,19 @@ void Node::DisableStateMachine(bool disable)
 void Node::TimerEventHandler(u16 passedTimeDs)
 {
 
+    //delayTime
+    if(delayTime > 0)
+    {
+        delayTime --;
+    }
+    else if (delayTime == 0)
+    {
+        delayTime = -1;
+        const char* args[] = {
+            "action", cmd[1], "node", "multi_generate_load", cmd[4], cmd[5], cmd[6], cmd[7], cmd[8]
+        };
+        TerminalCommandHandlerReturnType result = this->TerminalCommandHandler(args, 9);
+    }
     //synctime    
     if(ssettime>0)
     {
@@ -2991,18 +3187,19 @@ void Node::PrintStatus(void) const
     
     u16 meshMinConnectionIntervalValue = Conf::GetInstance().meshMinConnectionInterval * 1.25;
     u16 meshMaxConnectionIntervalValue = Conf::GetInstance().meshMaxConnectionInterval * 1.25;
-    u16 meshScanIntervalHighValue = Conf::GetInstance().meshScanIntervalHigh * 0.625; 
+    u16 meshScanIntervalHighValue = Conf::GetInstance().meshScanIntervalHigh * 0.625;
     u16 meshScanWindowHighValue = Conf::GetInstance().meshScanWindowHigh * 0.625;
     u16 meshScanIntervalLowValue = Conf::GetInstance().meshScanIntervalLow * 0.625;
     u16 meshScanWindowLowValue = Conf::GetInstance().meshScanWindowLow * 0.625;
     u16 connectionEventValue = GS->connectionEventvalue * 1.25;
-    trace("meshMinConnectionIntervalValue : %u" EOL, meshMinConnectionIntervalValue);
-    trace("meshMaxConnectionIntervalValue : %u" EOL, meshMaxConnectionIntervalValue);
-    trace("meshScanIntervalHighValue : %u" EOL, meshScanIntervalHighValue);
-    trace("meshScanIntervalLowValue : %u" EOL, meshScanIntervalLowValue);
-    trace("meshScanWindowHighValue : %u" EOL, meshScanWindowHighValue);
-    trace("meshScanWindowLowValue : %u" EOL, meshScanWindowLowValue);
-    trace("connectionEventValue : %u" EOL EOL, connectionEventValue);
+            
+    trace("meshMinConnectionIntervalValue : %u ms" EOL, meshMinConnectionIntervalValue);
+    trace("meshMaxConnectionIntervalValue : %u ms" EOL, meshMaxConnectionIntervalValue);
+    trace("meshScanIntervalHighValue : %u ms" EOL, meshScanIntervalHighValue);
+    trace("meshScanIntervalLowValue : %u ms" EOL, meshScanIntervalLowValue);
+    trace("meshScanWindowHighValue : %u ms" EOL, meshScanWindowHighValue);
+    trace("meshScanWindowLowValue : %u ms" EOL, meshScanWindowLowValue);
+    trace("connectionEventValue : %u ms" EOL EOL, connectionEventValue);
      
     SetTerminalTitle();
     trace("Mesh clusterSize:%u, clusterId:%u, featureset: %s, boardid: %u" EOL, clusterSize, clusterId, FEATURESET_NAME, Boardconfig->boardType);
@@ -3460,6 +3657,25 @@ TerminalCommandHandlerReturnType Node::TerminalCommandHandler(const char* comman
                 return TerminalCommandHandlerReturnType::SUCCESS;
             }
 
+            if (commandArgsSize > 4 && TERMARGS(3, "sync_multi_generate_load"))
+            {
+                //  0      1    2               3             4     5            6                  7            8          
+                //action this node sync_multi_generate_load size repeats timeBetweenMessages {requestHandle} delayTime
+
+                cmd[0] = commandArgs[0];
+                cmd[1] = commandArgs[1];
+                cmd[2] = commandArgs[2];
+                cmd[3] = commandArgs[3];
+                cmd[4] = commandArgs[4];
+                cmd[5] = commandArgs[5];
+                cmd[6] = commandArgs[6];
+                cmd[7] = commandArgs[7];
+                cmd[8] = commandArgs[8];
+
+                ssettime = 30;
+                delayTime = Utility::TerminalArgumentToNodeId(commandArgs[8]);;
+                return TerminalCommandHandlerReturnType::SUCCESS;
+            }
 
             //new command: let many nodes generate load
             if (commandArgsSize > 4 && TERMARGS(3, "multi_generate_load"))

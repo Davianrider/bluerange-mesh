@@ -95,7 +95,7 @@ class GlobalState
         static constexpr u16 SIZE_OF_EVENT_BUFFER = sizeof(currentEventBuffer);
 #endif
         //read connection event value new
-        u16 connectionEventvalue;
+        u16 connectionEventvalue = 0;
         //PDR new
         u32 rcvCount = 0;
         u32 sndCount = 0;

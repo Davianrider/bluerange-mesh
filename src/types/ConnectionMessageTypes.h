@@ -161,7 +161,7 @@ STATIC_ASSERT_SIZE(ConnPacketSplitHeader, SIZEOF_CONN_PACKET_SPLIT_HEADER);
 //CLUSTER_WELCOME is the first handshake packet being sent over a mesh connection after two
 //potential partners set up a connection
 constexpr size_t SIZEOF_CONN_PACKET_PAYLOAD_CLUSTER_WELCOME = 11;
-constexpr size_t SIZEOF_CONN_PACKET_PAYLOAD_CLUSTER_WELCOME_WITH_NETWORK_ID = 13;
+constexpr size_t SIZEOF_CONN_PACKET_PAYLOAD_CLUSTER_WELCOME_WITH_NETWORK_ID = 14; // new : original = 13
 typedef struct
 {
     ClusterId clusterId;
@@ -170,6 +170,7 @@ typedef struct
     ClusterSize hopsToSink;
     u8 preferredConnectionInterval;
     NetworkId networkId;
+    DeviceType deviceType; //new
 }ConnPacketPayloadClusterWelcome;
 STATIC_ASSERT_SIZE(ConnPacketPayloadClusterWelcome, SIZEOF_CONN_PACKET_PAYLOAD_CLUSTER_WELCOME_WITH_NETWORK_ID);
 
