@@ -1,1 +1,0 @@
-add_all_files_to_targets("${ARM_TARGETS}")
